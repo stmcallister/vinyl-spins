@@ -2,6 +2,9 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+ARG DEMO_BIG=0
+ARG DEMO_BIG_N=60000
+
 COPY package.json ./package.json
 COPY pnpm-lock.yaml ./pnpm-lock.yaml
 
@@ -13,7 +16,8 @@ COPY . ./
 # For production behind the same domain as the API+auth routes, you generally
 # want same-origin requests. Leaving VITE_API_URL unset will make the app use
 # same-origin by default (see src/utils/api.ts).
-RUN pnpm build
+RUN if [ "$DEMO_BIG" = "1" ]; then DEMO_BIG=1 DEMO_BIG_N="$DEMO_BIG_N" pnpm demobig:gen; fi
+RUN if [ "$DEMO_BIG" = "1" ]; then DEMO_BIG=1 pnpm build; else pnpm build; fi
 
 FROM nginx:1.27-alpine
 

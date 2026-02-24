@@ -35,25 +35,29 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: discogs-listen-tracker/backend/Dockerfile
+          file: backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vst-api:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/vst-api:latest
+          build-args: |
+            DEMO_BIG=0
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Docker Build & push UI (prod) image
         uses: docker/build-push-action@v6
         with:
-          context: discogs-listen-tracker/frontend
+          context: frontend
           file: Dockerfile.prod
           platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/vst-ui:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/vst-ui:latest
+          build-args: |
+            DEMO_BIG=0
           cache-from: type=gha
           cache-to: type=gha,mode=max
 

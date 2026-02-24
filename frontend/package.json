@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "demobig:gen": "node tools/demobiggen.mjs",
+    "build:demo": "DEMO_BIG=1 DEMO_BIG_N=60000 pnpm demobig:gen && tsc -b && vite build",
     "preview": "vite preview",
     "lint": "eslint ."
   },

@@ -11,6 +11,8 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/joho/godotenv"
 	"github.com/pressly/goose/v3"
+
+	backendmigrations "discogs-listen-tracker/backend/migrations"
 )
 
 func main() {
@@ -39,9 +41,10 @@ func main() {
 	}
 
 	goose.SetDialect("postgres")
-	goose.SetBaseFS(os.DirFS("."))
+	goose.SetBaseFS(backendmigrations.FS)
 
-	migrationsDir := "migrations"
+	// Migrations are embedded at the FS root (e.g. "001_init.sql").
+	migrationsDir := "."
 
 	switch cmd {
 	case "up":

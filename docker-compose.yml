@@ -5,41 +5,28 @@ services:
       POSTGRES_USER: discogs
       POSTGRES_PASSWORD: discogs
       POSTGRES_DB: discogs_listen_tracker
-    ports:
-      - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
 
   api:
     build:
-      context: ..
-      dockerfile: discogs-listen-tracker/backend/Dockerfile
+      context: .
+      dockerfile: backend/Dockerfile
     env_file:
       - .env
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://discogs:discogs@db:5432/discogs_listen_tracker?sslmode=disable
+    command: ["sh", "-c", "migrate up && api"]
     ports:
       - "8080:8080"
     depends_on:
       - db
 
-  migrate:
-    build:
-      context: ..
-      dockerfile: discogs-listen-tracker/backend/Dockerfile
-    env_file:
-      - .env
-    environment:
-      DATABASE_URL: postgres://discogs:discogs@db:5432/discogs_listen_tracker?sslmode=disable
-    command: ["migrate", "up"]
-    depends_on:
-      - db
-
   ui:
     build:
-      context: ..
-      dockerfile: discogs-listen-tracker/frontend/Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     environment:
       VITE_API_URL: http://localhost:8080
     ports:

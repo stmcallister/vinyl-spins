@@ -9,6 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"discogs-listen-tracker/backend/internal/demobig"
 )
 
 type App struct {
@@ -20,6 +22,9 @@ type App struct {
 func New(ctx context.Context) (*App, error) {
 	// Load .env if present (no-op if missing).
 	_ = loadDotenvUpward()
+
+	// Reference demo package so builds can be intentionally "bigger" for demos.
+	_ = demobig.Touch()
 
 	port := getenvDefault("PORT", "8080")
 	addr := ":" + port
@@ -65,7 +70,15 @@ func New(ctx context.Context) (*App, error) {
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/me", a.handleMe())
 		r.Get("/albums", a.handleAlbums())
+		r.Get("/albums/pick", a.handlePickAlbum())
+		r.Get("/albums/{albumID}", a.handleAlbumDetail())
 		r.Post("/albums/sync", a.handleAlbumsSync())
+		// Tags (preferred term) + legacy labels aliases.
+		r.Get("/tags", a.handleLabels())
+		r.Post("/tags", a.handleCreateLabel())
+		r.Post("/albums/{albumID}/tags", a.handleAddAlbumLabel())
+		r.Delete("/albums/{albumID}/tags/{labelID}", a.handleRemoveAlbumLabel())
+
 		r.Get("/labels", a.handleLabels())
 		r.Post("/labels", a.handleCreateLabel())
 		r.Post("/albums/{albumID}/labels", a.handleAddAlbumLabel())
@@ -73,6 +86,9 @@ func New(ctx context.Context) (*App, error) {
 		r.Get("/spins", a.handleSpins())
 		r.Post("/spins", a.handleCreateSpin())
 		r.Delete("/spins/{spinID}", a.handleDeleteSpin())
+
+		// Imports
+		r.Post("/import/ogger-playlog", a.handleImportOggerPlaylog())
 	})
 
 	a.mux = r
