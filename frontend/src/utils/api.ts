@@ -43,7 +43,7 @@ export const api = {
   async albums(input?: {
     q?: string;
     artist?: string;
-    label_ids?: string; // comma-separated
+    tag_ids?: string; // comma-separated
     sort?: "artist" | "title" | "spin_count" | "last_spun_at";
     order?: "asc" | "desc";
   }): Promise<
@@ -52,20 +52,21 @@ export const api = {
       discogs_release_id: number;
       title: string;
       artist: string;
+      record_label?: string;
       year?: number;
       thumb_url?: string;
       resource_url?: string;
       last_synced_at?: string;
       spin_count: number;
       last_spun_at?: string;
-      labels: Array<{ id: string; name: string }>;
+      tags: Array<{ id: string; name: string }>;
     }>
   > {
     return await fetchJSON(
       `/api/albums${qs({
         q: input?.q,
         artist: input?.artist,
-        label_ids: input?.label_ids,
+        tag_ids: input?.tag_ids,
         sort: input?.sort,
         order: input?.order,
       })}`,
@@ -76,23 +77,23 @@ export const api = {
     return await fetchJSON("/api/albums/sync", { method: "POST", body: "{}" });
   },
 
-  async labels(): Promise<Array<{ id: string; name: string; album_count: number }>> {
-    return await fetchJSON("/api/labels");
+  async tags(): Promise<Array<{ id: string; name: string; album_count: number }>> {
+    return await fetchJSON("/api/tags");
   },
 
-  async createLabel(input: { name: string }): Promise<{ id: string; name: string }> {
-    return await fetchJSON("/api/labels", { method: "POST", body: JSON.stringify(input) });
+  async createTag(input: { name: string }): Promise<{ id: string; name: string }> {
+    return await fetchJSON("/api/tags", { method: "POST", body: JSON.stringify(input) });
   },
 
-  async addAlbumLabel(albumID: string, input: { label_id?: string; name?: string }): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/labels`, {
+  async addAlbumTag(albumID: string, input: { tag_id?: string; name?: string }): Promise<void> {
+    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags`, {
       method: "POST",
       body: JSON.stringify(input),
     });
   },
 
-  async removeAlbumLabel(albumID: string, labelID: string): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/labels/${encodeURIComponent(labelID)}`, {
+  async removeAlbumTag(albumID: string, tagID: string): Promise<void> {
+    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags/${encodeURIComponent(tagID)}`, {
       method: "DELETE",
     });
   },

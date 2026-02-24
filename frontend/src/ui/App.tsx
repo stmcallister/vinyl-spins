@@ -18,25 +18,25 @@ export function App() {
     retry: false,
   });
 
-  const labels = useQuery({
-    queryKey: ["labels"],
-    queryFn: api.labels,
+  const tags = useQuery({
+    queryKey: ["tags"],
+    queryFn: api.tags,
     enabled: me.isSuccess,
   });
 
   const [search, setSearch] = useState("");
   const [artistFilter, setArtistFilter] = useState("");
-  const [labelFilterIDs, setLabelFilterIDs] = useState<string[]>([]);
+  const [tagFilterIDs, setTagFilterIDs] = useState<string[]>([]);
   const [sort, setSort] = useState<"artist" | "title" | "spin_count" | "last_spun_at">("artist");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
 
   const albums = useQuery({
-    queryKey: ["albums", { search, artistFilter, labelFilterIDs, sort, order }],
+    queryKey: ["albums", { search, artistFilter, tagFilterIDs, sort, order }],
     queryFn: () =>
       api.albums({
         q: search || undefined,
         artist: artistFilter || undefined,
-        label_ids: labelFilterIDs.length ? labelFilterIDs.join(",") : undefined,
+        tag_ids: tagFilterIDs.length ? tagFilterIDs.join(",") : undefined,
         sort,
         order,
       }),
@@ -56,33 +56,33 @@ export function App() {
     },
   });
 
-  const createLabel = useMutation({
-    mutationFn: api.createLabel,
+  const createTag = useMutation({
+    mutationFn: api.createTag,
     onSuccess: async () => {
-      await Promise.all([qc.invalidateQueries({ queryKey: ["labels"] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["tags"] })]);
     },
   });
 
-  const addAlbumLabel = useMutation({
-    mutationFn: async (input: { albumID: string; label_id?: string; name?: string }) => {
-      await api.addAlbumLabel(input.albumID, { label_id: input.label_id, name: input.name });
+  const addAlbumTag = useMutation({
+    mutationFn: async (input: { albumID: string; tag_id?: string; name?: string }) => {
+      await api.addAlbumTag(input.albumID, { tag_id: input.tag_id, name: input.name });
     },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["labels"] }),
+        qc.invalidateQueries({ queryKey: ["tags"] }),
       ]);
     },
   });
 
-  const removeAlbumLabel = useMutation({
-    mutationFn: async (input: { albumID: string; labelID: string }) => {
-      await api.removeAlbumLabel(input.albumID, input.labelID);
+  const removeAlbumTag = useMutation({
+    mutationFn: async (input: { albumID: string; tagID: string }) => {
+      await api.removeAlbumTag(input.albumID, input.tagID);
     },
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["labels"] }),
+        qc.invalidateQueries({ queryKey: ["tags"] }),
       ]);
     },
   });
@@ -113,7 +113,7 @@ export function App() {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["me"] }),
         qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["labels"] }),
+        qc.invalidateQueries({ queryKey: ["tags"] }),
         qc.invalidateQueries({ queryKey: ["spins"] }),
       ]);
     },
@@ -121,7 +121,7 @@ export function App() {
 
   const [spunAtLocal, setSpunAtLocal] = useState("");
   const [note, setNote] = useState("");
-  const [newLabelName, setNewLabelName] = useState("");
+  const [newTagName, setNewTagName] = useState("");
   const [selectedAlbumID, setSelectedAlbumID] = useState("");
 
   const albumOptions = useMemo(() => {
@@ -138,7 +138,7 @@ export function App() {
     return Array.from(set).sort((x, y) => x.localeCompare(y));
   }, [albums.data]);
 
-  const labelOptions = useMemo(() => labels.data ?? [], [labels.data]);
+  const tagOptions = useMemo(() => tags.data ?? [], [tags.data]);
 
   return (
     <div className="min-h-dvh">
@@ -255,25 +255,25 @@ export function App() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="text-xs text-zinc-400">Filter labels:</div>
-                  {labelOptions.map((l) => {
-                    const active = labelFilterIDs.includes(l.id);
+                  <div className="text-xs text-zinc-400">Filter tags:</div>
+                  {tagOptions.map((t) => {
+                    const active = tagFilterIDs.includes(t.id);
                     return (
                       <button
-                        key={l.id}
+                        key={t.id}
                         className={`rounded-full border px-2 py-1 text-xs ${
                           active
                             ? "border-zinc-300 bg-zinc-100 text-zinc-900"
                             : "border-zinc-700 text-zinc-200 hover:bg-zinc-900"
                         }`}
                         onClick={() =>
-                          setLabelFilterIDs((prev) =>
-                            prev.includes(l.id) ? prev.filter((x) => x !== l.id) : [...prev, l.id],
+                          setTagFilterIDs((prev) =>
+                            prev.includes(t.id) ? prev.filter((x) => x !== t.id) : [...prev, t.id],
                           )
                         }
                         type="button"
                       >
-                        {l.name}
+                        {t.name}
                       </button>
                     );
                   })}
@@ -294,20 +294,23 @@ export function App() {
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{a.artist}</div>
                         <div className="truncate text-sm text-zinc-300">{a.title}</div>
+                        {a.record_label ? (
+                          <div className="mt-1 text-xs text-zinc-500">Record label: {a.record_label}</div>
+                        ) : null}
                         <div className="mt-1 text-xs text-zinc-500">
                           Spins: {a.spin_count}
                           {a.last_spun_at ? ` • Last: ${new Date(a.last_spun_at).toLocaleString()}` : ""}
                         </div>
                         <div className="mt-2 flex flex-wrap gap-1">
-                          {(a.labels ?? []).map((l) => (
+                          {(a.tags ?? []).map((t) => (
                             <button
-                              key={l.id}
+                              key={t.id}
                               className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 hover:bg-zinc-900"
-                              title="Remove label"
-                              onClick={() => removeAlbumLabel.mutate({ albumID: a.id, labelID: l.id })}
+                              title="Remove tag"
+                              onClick={() => removeAlbumTag.mutate({ albumID: a.id, tagID: t.id })}
                               type="button"
                             >
-                              {l.name}
+                              {t.name}
                             </button>
                           ))}
                         </div>
@@ -332,7 +335,7 @@ export function App() {
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Discogs
+                            Release Info
                           </a>
                         ) : null}
                       </div>
@@ -345,23 +348,23 @@ export function App() {
                           onChange={(e) => {
                             const id = e.target.value;
                             if (!id) return;
-                            addAlbumLabel.mutate({ albumID: a.id, label_id: id });
+                            addAlbumTag.mutate({ albumID: a.id, tag_id: id });
                             e.currentTarget.value = "";
                           }}
                         >
-                          <option value="">Add existing label…</option>
-                          {labelOptions.map((l) => (
-                            <option key={l.id} value={l.id}>
-                              {l.name}
+                          <option value="">Add existing tag…</option>
+                          {tagOptions.map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.name}
                             </option>
                           ))}
                         </select>
                         <button
                           className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
                           onClick={() => {
-                            const name = window.prompt("New label name?");
+                            const name = window.prompt("New tag name?");
                             if (!name) return;
-                            addAlbumLabel.mutate({ albumID: a.id, name });
+                            addAlbumTag.mutate({ albumID: a.id, name });
                           }}
                           type="button"
                         >
@@ -378,33 +381,33 @@ export function App() {
               <div className="font-medium">Spins</div>
 
               <div className="mt-3 rounded-md border border-zinc-800 p-3">
-                <div className="text-sm font-medium">Create label</div>
+                <div className="text-sm font-medium">Create tag</div>
                 <form
                   className="mt-2 flex gap-2"
                   onSubmit={(e) => {
                     e.preventDefault();
-                    const name = newLabelName.trim();
+                    const name = newTagName.trim();
                     if (!name) return;
-                    createLabel.mutate({ name });
-                    setNewLabelName("");
+                    createTag.mutate({ name });
+                    setNewTagName("");
                   }}
                 >
                   <input
                     className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
                     placeholder="e.g. Jazz, Christmas…"
-                    value={newLabelName}
-                    onChange={(e) => setNewLabelName(e.target.value)}
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
                   />
                   <button
                     className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
-                    disabled={!newLabelName.trim() || createLabel.isPending}
+                    disabled={!newTagName.trim() || createTag.isPending}
                     type="submit"
                   >
                     Add
                   </button>
                 </form>
-                {createLabel.isError ? (
-                  <div className="mt-2 text-sm text-red-300">{String(createLabel.error)}</div>
+                {createTag.isError ? (
+                  <div className="mt-2 text-sm text-red-300">{String(createTag.error)}</div>
                 ) : null}
               </div>
 
