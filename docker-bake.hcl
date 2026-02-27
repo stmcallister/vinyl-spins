@@ -39,7 +39,7 @@ target "api" {
 
 target "ui" {
   context    = "frontend"
-  dockerfile = "frontend/Dockerfile.prod"
+  dockerfile = "Dockerfile.prod"
   platforms  = ["linux/amd64", "linux/arm64"]
   tags = PUSH_LATEST ? [
     "${DOCKER_USER}/vst-ui:${TAG}",
