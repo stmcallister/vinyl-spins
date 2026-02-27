@@ -1,10 +1,10 @@
-# Multi-platform build definitions (amd64 + arm64).
+# Single-platform build definitions.
 #
 # Examples:
 #   DOCKER_USER=mydockeruser TAG=latest depot bake --push
 #   DOCKER_USER=mydockeruser TAG=$(git rev-parse HEAD) PUSH_LATEST=true depot bake --push
 #
-# Note: `--load` does not support multi-platform outputs; use `--push` for multi-arch.
+# Note: set `platforms` if you want to pin the build architecture.
 
 variable "DOCKER_USER" {
   default = ""
@@ -25,7 +25,7 @@ group "default" {
 target "api" {
   context    = "."
   dockerfile = "backend/Dockerfile"
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = ["linux/amd64"]
   tags = PUSH_LATEST ? [
     "${DOCKER_USER}/vst-api:${TAG}",
     "${DOCKER_USER}/vst-api:latest",
@@ -40,7 +40,7 @@ target "api" {
 target "ui" {
   context    = "frontend"
   dockerfile = "Dockerfile.prod"
-  platforms  = ["linux/amd64", "linux/arm64"]
+  platforms  = ["linux/amd64"]
   tags = PUSH_LATEST ? [
     "${DOCKER_USER}/vst-ui:${TAG}",
     "${DOCKER_USER}/vst-ui:latest",

@@ -1,14 +1,11 @@
 # syntax=docker/dockerfile:1.7
 
-ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM golang:1.22-alpine AS build
+FROM golang:1.22-alpine AS build
 
 WORKDIR /src
 
 ARG DEMO_BIG=0
 ARG DEMO_BIG_N=20000
-ARG TARGETOS
-ARG TARGETARCH
 
 # Build context is repo root (see docker-compose.yml).
 COPY go.work go.work
@@ -33,7 +30,7 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     if [ "$DEMO_BIG" = "1" ]; then DEMO_BIG_N="$DEMO_BIG_N" go run ./tools/demobiggen -out internal/demobig/generated.go; fi
 RUN --mount=type=cache,target=/go/pkg/mod \
     --mount=type=cache,target=/root/.cache/go-build \
-    CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH" \
+    CGO_ENABLED=0 \
     go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api && \
     go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate && \
     go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker && \

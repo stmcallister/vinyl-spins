@@ -83,7 +83,7 @@ jobs:
             -e "s|DOCKER_URL|${{ secrets.DOCKER_URL }}|g" \
             -e "s|IMAGE_LABEL|${{ github.sha }}|g" \
             -e "s|ALLOW_EMAIL|${{ secrets.ALLOW_EMAIL }}|g" \
-            -e "s|APP_URL|${{ vars.APP_URL }}|g" \            
+            -e "s|APP_URL|${{ vars.APP_URL }}|g" \
             "$MANIFEST"
 
       - name: Commit and push updated manifests (render_prod)
