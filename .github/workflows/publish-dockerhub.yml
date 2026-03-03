@@ -31,7 +31,7 @@ jobs:
       - name: Build & push multi-platform images (API + UI)
         uses: depot/bake-action@v1
         with:
-          project: s51xdpkpgg
+          project: ln4tfk4zrt
           files: docker-bake.hcl
           push: true
           provenance: false
