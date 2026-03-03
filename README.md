@@ -1,4 +1,4 @@
-# Vinyl Spin Tracker
+# Vinyl Spins
 
 Multi-user hosted web app: **Go backend + Postgres + responsive React UI**.
 
