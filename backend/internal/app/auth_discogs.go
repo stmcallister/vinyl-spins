@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	discogs "github.com/stmcallister/go-discogs"
@@ -288,7 +289,9 @@ func frontendRedirectURL() string {
 	if v := os.Getenv("FRONTEND_URL"); v != "" {
 		return v
 	}
-	return "http://localhost:5173/"
+	// Default to same-origin so production doesn't depend on a hardcoded domain.
+	// The UI uses hash routing, but "/" is fine (it serves index.html).
+	return "/"
 }
 
 // ---- Cookie + JSON helpers ----
@@ -317,13 +320,33 @@ type sealer struct {
 }
 
 func newSealerFromEnv() (*sealer, error) {
-	keyB64 := os.Getenv("APP_ENC_KEY")
+	keyB64 := strings.TrimSpace(os.Getenv("APP_ENC_KEY"))
 	if keyB64 == "" {
 		return nil, errors.New("missing APP_ENC_KEY")
 	}
-	key, err := base64.StdEncoding.DecodeString(keyB64)
-	if err != nil {
-		return nil, errors.New("APP_ENC_KEY must be base64")
+	// Some deploy setups accidentally include wrapping quotes in env values.
+	// Accept them to avoid footguns.
+	if len(keyB64) >= 2 {
+		if (keyB64[0] == '"' && keyB64[len(keyB64)-1] == '"') || (keyB64[0] == '\'' && keyB64[len(keyB64)-1] == '\'') {
+			keyB64 = strings.TrimSpace(keyB64[1 : len(keyB64)-1])
+		}
+	}
+
+	var key []byte
+	var decodeErr error
+	for _, enc := range []*base64.Encoding{
+		base64.StdEncoding,
+		base64.RawStdEncoding,
+		base64.URLEncoding,
+		base64.RawURLEncoding,
+	} {
+		key, decodeErr = enc.DecodeString(keyB64)
+		if decodeErr == nil {
+			break
+		}
+	}
+	if decodeErr != nil {
+		return nil, errors.New("APP_ENC_KEY must be base64 (try: openssl rand -base64 32)")
 	}
 	if len(key) != 32 {
 		return nil, fmt.Errorf("APP_ENC_KEY must decode to 32 bytes (got %d)", len(key))
