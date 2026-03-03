@@ -14,6 +14,7 @@ jobs:
     runs-on: depot-ubuntu-latest
     permissions:
       contents: read
+      id-token: write
 
     steps:
       - name: Checkout
@@ -31,12 +32,12 @@ jobs:
       - name: Build & push multi-platform images (API + UI)
         uses: depot/bake-action@v1
         with:
+          token: ${{ secrets.DEPOT_TOKEN }}
           project: ln4tfk4zrt
           files: docker-bake.hcl
           push: true
           provenance: false
         env:
-          token: ${{ secrets.DEPOT_TOKEN }}
           DOCKER_USER: ${{ secrets.DOCKER_USER }}
           TAG: ${{ github.sha }}
           PUSH_LATEST: "false"
