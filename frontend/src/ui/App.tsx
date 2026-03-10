@@ -16,15 +16,62 @@ function navigate(to: string) {
   window.location.hash = to.startsWith("#") ? to : `#${to}`;
 }
 
-export function App() {
-  const qc = useQueryClient();
-  const path = useHashPath();
+function NavLink(props: { active: boolean; onClick: () => void; children: string }) {
+  return (
+    <button
+      type="button"
+      className={`underline decoration-white/25 underline-offset-2 hover:text-white ${
+        props.active ? "text-white" : "text-zinc-200"
+      }`}
+      onClick={props.onClick}
+    >
+      {props.children}
+    </button>
+  );
+}
 
+function ApiHealthPage(props: { apiUrl: string }) {
   const health = useQuery({
     queryKey: ["healthz"],
     queryFn: api.healthz,
     retry: false,
   });
+
+  const badge =
+    health.isLoading
+      ? { label: "Checking…", cls: "border-amber-500/30 bg-amber-500/10 text-amber-200" }
+      : health.isError
+        ? { label: "Error", cls: "border-red-500/30 bg-red-500/10 text-red-200" }
+        : { label: "OK", cls: "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" };
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-sm shadow-black/20">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm font-medium">API health</div>
+          <div className="mt-1 text-xs text-zinc-400">
+            Checking <span className="font-mono">{props.apiUrl}</span>
+          </div>
+        </div>
+        <div className={`shrink-0 rounded-full border px-2 py-1 text-xs font-medium ${badge.cls}`}>{badge.label}</div>
+      </div>
+
+      <div className="mt-3 rounded-md border border-white/10 bg-black/20 p-3 text-sm text-zinc-200">
+        {health.isLoading ? "checking…" : health.isError ? "error" : health.data}
+      </div>
+
+      {health.isError ? (
+        <div className="mt-3 text-sm text-red-200">
+          Make sure the Go API is running on <span className="font-medium">{props.apiUrl}</span>.
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function App() {
+  const qc = useQueryClient();
+  const path = useHashPath();
 
   const apiUrl =
     (import.meta.env.VITE_API_URL as string | undefined) ??
@@ -115,21 +162,30 @@ export function App() {
     },
   });
 
+  const pickTop = useMutation({
+    mutationFn: () => api.pickAlbum(),
+    onSuccess: (a) => navigate(`/albums/${a.id}`),
+  });
+
   const nav = (
-    <nav className="mt-2 flex gap-3 text-sm text-zinc-300">
-      <button
-        type="button"
-        className={`underline decoration-zinc-600 underline-offset-2 hover:text-white ${path === "/" ? "text-white" : ""}`}
-        onClick={() => navigate("/")}
-      >
+    <nav className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+      <NavLink active={path === "/"} onClick={() => navigate("/")}>
         Albums
-      </button>
+      </NavLink>
+      <NavLink active={path === "/spins"} onClick={() => navigate("/spins")}>
+        Spins
+      </NavLink>
+      <NavLink active={path === "/api-health"} onClick={() => navigate("/api-health")}>
+        API Health
+      </NavLink>
       <button
         type="button"
-        className={`underline decoration-zinc-600 underline-offset-2 hover:text-white ${path === "/spins" ? "text-white" : ""}`}
-        onClick={() => navigate("/spins")}
+        className="ml-1 rounded-md border border-white/10 bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-100 hover:bg-sky-500/15 disabled:opacity-50"
+        onClick={() => pickTop.mutate()}
+        disabled={pickTop.isPending}
+        title="Pick a weighted random album"
       >
-        Spins
+        {pickTop.isPending ? "Picking…" : "Pick random"}
       </button>
     </nav>
   );
@@ -137,8 +193,8 @@ export function App() {
   const tagOptions = useMemo(() => tags.data ?? [], [tags.data]);
 
   return (
-    <div className="min-h-dvh">
-      <header className="border-b border-zinc-800">
+    <div className="min-h-dvh bg-gradient-to-b from-zinc-950 via-slate-950 to-slate-900">
+      <header className="border-b border-white/10 bg-black/20">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <div>
             <div className="text-lg font-semibold">Vinyl Spin Tracker</div>
@@ -153,7 +209,7 @@ export function App() {
             {me.isSuccess ? (
               <>
                 <button
-                  className="rounded-md border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-900"
+                  className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-white/[0.06]"
                   onClick={() => syncAlbums.mutate()}
                   disabled={syncAlbums.isPending}
                 >
@@ -180,24 +236,9 @@ export function App() {
       </header>
 
       <main className="mx-auto max-w-4xl px-4 py-6">
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/30 p-4">
-          <div className="text-sm text-zinc-300">
-            API health:{" "}
-            {health.isLoading
-              ? "checking…"
-              : health.isError
-                ? "error"
-                : health.data}
-          </div>
-          {health.isError ? (
-            <div className="mt-2 text-sm text-red-300">
-              Make sure the Go API is running on {apiUrl}. (Try `api` in a flox
-              shell.)
-            </div>
-          ) : null}
-        </div>
-
-        {me.isSuccess ? (
+        {path === "/api-health" ? (
+          <ApiHealthPage apiUrl={apiUrl} />
+        ) : me.isSuccess ? (
           <AppAuthed
             path={path}
             tagOptions={tagOptions}
@@ -208,11 +249,13 @@ export function App() {
             deleteSpin={deleteSpin}
           />
         ) : me.isError ? (
-          <div className="mt-6 rounded-lg border border-zinc-800 p-4 text-sm text-zinc-300">
+          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-200 shadow-sm shadow-black/20">
             Not connected. Click <span className="font-medium">Connect Discogs</span> above to authenticate.
           </div>
         ) : (
-          <div className="mt-6 rounded-lg border border-zinc-800 p-4 text-sm text-zinc-300">Loading session…</div>
+          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-200 shadow-sm shadow-black/20">
+            Loading session…
+          </div>
         )}
       </main>
     </div>
@@ -261,16 +304,6 @@ function AppAuthed(props: {
     enabled: !!albumIDFromPath,
   });
 
-  const pick = useMutation({
-    mutationFn: () =>
-      api.pickAlbum({
-        q: search || undefined,
-        artist: artistFilter || undefined,
-        tag_ids: tagFilterIDs.length ? tagFilterIDs.join(",") : undefined,
-      }),
-    onSuccess: (a) => navigate(`/albums/${a.id}`),
-  });
-
   const [oggerFile, setOggerFile] = useState<File | null>(null);
   const [oggerTZ, setOggerTZ] = useState(() => Intl.DateTimeFormat().resolvedOptions().timeZone || "");
   const oggerImport = useMutation({
@@ -305,7 +338,7 @@ function AppAuthed(props: {
   if (props.path === "/spins") {
     return (
       <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-zinc-800 p-4">
+        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm shadow-black/20">
           <div className="font-medium">Create tag</div>
           <form
             className="mt-2 flex gap-2"
@@ -318,7 +351,7 @@ function AppAuthed(props: {
             }}
           >
             <input
-              className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="flex-1 rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               placeholder="e.g. Jazz, Christmas…"
               value={newTagName}
               onChange={(e) => setNewTagName(e.target.value)}
@@ -335,7 +368,7 @@ function AppAuthed(props: {
             <div className="mt-2 text-sm text-red-300">{String(props.createTag.error)}</div>
           ) : null}
 
-          <div className="mt-6 border-t border-zinc-800 pt-4">
+          <div className="mt-6 border-t border-white/10 pt-4">
             <div className="text-sm font-medium">Import play history (The Ogger Club)</div>
             <div className="mt-2 space-y-2">
               <input
@@ -345,7 +378,7 @@ function AppAuthed(props: {
                 onChange={(e) => setOggerFile(e.target.files?.[0] ?? null)}
               />
               <input
-                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+                className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
                 placeholder="Timezone (e.g. America/Los_Angeles)"
                 value={oggerTZ}
                 onChange={(e) => setOggerTZ(e.target.value)}
@@ -371,7 +404,7 @@ function AppAuthed(props: {
           </div>
         </div>
 
-        <div className="rounded-lg border border-zinc-800 p-4">
+        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4 shadow-sm shadow-black/20">
           <div className="font-medium">Spins</div>
           <form
             className="mt-3 space-y-2"
@@ -390,7 +423,7 @@ function AppAuthed(props: {
             }}
           >
             <select
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               value={selectedAlbumID}
               onChange={(e) => setSelectedAlbumID(e.target.value)}
             >
@@ -402,13 +435,13 @@ function AppAuthed(props: {
               ))}
             </select>
             <input
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               type="datetime-local"
               value={spunAtLocal}
               onChange={(e) => setSpunAtLocal(e.target.value)}
             />
             <input
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               placeholder="Note (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -430,7 +463,7 @@ function AppAuthed(props: {
             <div className="max-h-[520px] overflow-auto">
               <ul className="space-y-2">
                 {(spins.data ?? []).map((s) => (
-                  <li key={s.id} className="rounded-md border border-zinc-800 p-2">
+                  <li key={s.id} className="rounded-md border border-white/10 bg-black/15 p-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">{s.album_artist}</div>
@@ -468,9 +501,9 @@ function AppAuthed(props: {
   if (albumIDFromPath) {
     const a = albumDetail.data;
     return (
-      <div className="mt-6 rounded-lg border border-zinc-800 p-4">
+      <div className="mt-6 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-sm shadow-black/20">
         <div className="flex items-start justify-between gap-3">
-          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-zinc-800 bg-zinc-900">
+          <div className="h-24 w-24 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/20">
             {a?.thumb_url ? (
               <img src={a.thumb_url} alt="" className="h-full w-full object-cover" />
             ) : (
@@ -493,12 +526,11 @@ function AppAuthed(props: {
           <div className="flex shrink-0 flex-col items-end gap-2">
             <button
               type="button"
-              className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
-              disabled={pick.isPending}
-              onClick={() => pick.mutate()}
-              title="Pick another weighted random album"
+              className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
+              onClick={() => document.getElementById("add-spin")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+              title="Jump to the add spin form"
             >
-              {pick.isPending ? "Picking…" : "Pick random"}
+              Add spin
             </button>
             {a?.resource_url ? (
               <a
@@ -520,7 +552,7 @@ function AppAuthed(props: {
         ) : null}
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="rounded-md border border-zinc-800 p-3">
+          <div className="rounded-md border border-white/10 bg-black/15 p-3">
             <div className="text-sm font-medium">Formats</div>
             <ul className="mt-2 space-y-1 text-sm text-zinc-300">
               {(a?.discogs?.formats ?? []).length ? (
@@ -536,12 +568,12 @@ function AppAuthed(props: {
             </ul>
           </div>
 
-          <div className="rounded-md border border-zinc-800 p-3">
+          <div className="rounded-md border border-white/10 bg-black/15 p-3">
             <div className="text-sm font-medium">Spins</div>
             <div className="mt-2 max-h-[360px] overflow-auto">
               <ul className="space-y-2">
                 {(a?.spins ?? []).map((s) => (
-                  <li key={s.id} className="rounded-md border border-zinc-800 p-2">
+                  <li key={s.id} className="rounded-md border border-white/10 bg-black/20 p-2">
                     <div className="text-sm text-zinc-200">{new Date(s.spun_at).toLocaleString()}</div>
                     {s.note ? <div className="mt-0.5 text-xs text-zinc-500">{s.note}</div> : null}
                   </li>
@@ -552,7 +584,7 @@ function AppAuthed(props: {
           </div>
         </div>
 
-        <div className="mt-4 rounded-md border border-zinc-800 p-3">
+        <div id="add-spin" className="mt-4 rounded-md border border-white/10 bg-black/15 p-3">
           <div className="text-sm font-medium">Add spin</div>
           <form
             className="mt-2 space-y-2"
@@ -571,13 +603,13 @@ function AppAuthed(props: {
             }}
           >
             <input
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               type="datetime-local"
               value={spunAtLocal}
               onChange={(e) => setSpunAtLocal(e.target.value)}
             />
             <input
-              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+              className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
               placeholder="Note (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
@@ -597,18 +629,17 @@ function AppAuthed(props: {
 
   // Default: albums page
   return (
-    <div className="mt-6 rounded-lg border border-zinc-800 p-4">
+    <div className="mt-6 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4 shadow-sm shadow-black/20">
       <div className="flex items-center justify-between gap-2">
         <div className="font-medium">Albums</div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
-            onClick={() => pick.mutate()}
-            disabled={pick.isPending}
-            title="Weighted random pick (bias toward older last-spun)"
+            className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
+            onClick={() => navigate("/spins")}
+            title="Go add a new spin"
           >
-            {pick.isPending ? "Picking…" : "Pick random (weighted)"}
+            Add spin
           </button>
           <div className="text-xs text-zinc-400">
             {albums.isLoading ? "Loading…" : `${albums.data?.length ?? 0} albums`}
@@ -618,7 +649,7 @@ function AppAuthed(props: {
 
       <div className="mt-3 grid gap-2">
         <input
-          className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+          className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
           placeholder="Search by album or artist…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -626,7 +657,7 @@ function AppAuthed(props: {
 
         <div className="grid gap-2 md:grid-cols-2">
           <select
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
             value={artistFilter}
             onChange={(e) => setArtistFilter(e.target.value)}
           >
@@ -639,7 +670,7 @@ function AppAuthed(props: {
           </select>
 
           <select
-            className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm"
+            className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
             value={`${sort}:${order}`}
             onChange={(e) => {
               const [s, o] = e.target.value.split(":") as [
@@ -692,7 +723,7 @@ function AppAuthed(props: {
       <div className="mt-3 max-h-[640px] overflow-auto">
         <ul className="space-y-2">
           {(albums.data ?? []).map((a) => (
-            <li key={a.id} className="rounded-md border border-zinc-800 p-2">
+            <li key={a.id} className="rounded-md border border-white/10 bg-black/15 p-2">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-zinc-800">
                   {a.thumb_url ? <img src={a.thumb_url} alt="" className="h-full w-full object-cover" /> : null}
@@ -729,7 +760,7 @@ function AppAuthed(props: {
 
               <div className="mt-2 flex items-center gap-2">
                 <select
-                  className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1 text-xs"
+                  className="flex-1 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs"
                   defaultValue=""
                   onChange={(e) => {
                     const id = e.target.value;
