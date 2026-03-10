@@ -633,14 +633,6 @@ function AppAuthed(props: {
       <div className="flex items-center justify-between gap-2">
         <div className="font-medium">Albums</div>
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
-            onClick={() => navigate("/spins")}
-            title="Go add a new spin"
-          >
-            Add spin
-          </button>
           <div className="text-xs text-zinc-400">
             {albums.isLoading ? "Loading…" : `${albums.data?.length ?? 0} albums`}
           </div>
