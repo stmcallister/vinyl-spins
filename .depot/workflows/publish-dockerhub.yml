@@ -33,7 +33,7 @@ jobs:
         uses: depot/bake-action@v1
         with:
           token: ${{ secrets.DEPOT_TOKEN }}
-          project: ln4tfk4zrt
+          project: ${{ secrets.DEPOT_PROJECT }}
           files: docker-bake.hcl
           push: true
           provenance: false
