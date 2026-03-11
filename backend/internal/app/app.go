@@ -76,6 +76,8 @@ func New(ctx context.Context) (*App, error) {
 		r.Post("/albums/sync", a.handleAlbumsSync())
 		r.Get("/tags", a.handleTags())
 		r.Post("/tags", a.handleCreateTag())
+		r.Put("/tags/{tagID}", a.handleUpdateTag())
+		r.Delete("/tags/{tagID}", a.handleDeleteTag())
 		r.Post("/albums/{albumID}/tags", a.handleAddAlbumTag())
 		r.Delete("/albums/{albumID}/tags/{tagID}", a.handleRemoveAlbumTag())
 

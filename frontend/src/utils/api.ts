@@ -148,6 +148,14 @@ export const api = {
     return await fetchJSON("/api/tags", { method: "POST", body: JSON.stringify(input) });
   },
 
+  async updateTag(tagID: string, input: { name: string }): Promise<{ id: string; name: string }> {
+    return await fetchJSON(`/api/tags/${encodeURIComponent(tagID)}`, { method: "PUT", body: JSON.stringify(input) });
+  },
+
+  async deleteTag(tagID: string): Promise<void> {
+    await fetchJSON(`/api/tags/${encodeURIComponent(tagID)}`, { method: "DELETE" });
+  },
+
   async addAlbumTag(albumID: string, input: { tag_id?: string; name?: string }): Promise<void> {
     await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags`, {
       method: "POST",

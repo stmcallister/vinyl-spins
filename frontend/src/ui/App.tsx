@@ -73,6 +73,11 @@ export function App() {
   const qc = useQueryClient();
   const path = useHashPath();
 
+  const tagApi = api as typeof api & {
+    updateTag: (tagID: string, input: { name: string }) => Promise<{ id: string; name: string }>;
+    deleteTag: (tagID: string) => Promise<void>;
+  };
+
   const apiUrl =
     (import.meta.env.VITE_API_URL as string | undefined) ??
     (import.meta.env.PROD ? "" : "http://localhost:8080");
@@ -101,6 +106,32 @@ export function App() {
     mutationFn: api.createTag,
     onSuccess: async () => {
       await Promise.all([qc.invalidateQueries({ queryKey: ["tags"] })]);
+    },
+  });
+
+  const updateTag = useMutation({
+    mutationFn: async (input: { tagID: string; name: string }) => {
+      return await tagApi.updateTag(input.tagID, { name: input.name });
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["tags"] }),
+        qc.invalidateQueries({ queryKey: ["albums"] }),
+        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+      ]);
+    },
+  });
+
+  const deleteTag = useMutation({
+    mutationFn: async (tagID: string) => {
+      await tagApi.deleteTag(tagID);
+    },
+    onSuccess: async () => {
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["tags"] }),
+        qc.invalidateQueries({ queryKey: ["albums"] }),
+        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+      ]);
     },
   });
 
@@ -175,6 +206,12 @@ export function App() {
       <NavLink active={path === "/spins"} onClick={() => navigate("/spins")}>
         Spins
       </NavLink>
+      <NavLink active={path === "/tags"} onClick={() => navigate("/tags")}>
+        Tags
+      </NavLink>
+      <NavLink active={path === "/import"} onClick={() => navigate("/import")}>
+        Import
+      </NavLink>
       <NavLink active={path === "/api-health"} onClick={() => navigate("/api-health")}>
         API Health
       </NavLink>
@@ -243,6 +280,8 @@ export function App() {
             path={path}
             tagOptions={tagOptions}
             createTag={createTag}
+            updateTag={updateTag}
+            deleteTag={deleteTag}
             addAlbumTag={addAlbumTag}
             removeAlbumTag={removeAlbumTag}
             createSpin={createSpin}
@@ -266,6 +305,8 @@ function AppAuthed(props: {
   path: string;
   tagOptions: Array<{ id: string; name: string; album_count: number }>;
   createTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { name: string }, unknown>>;
+  updateTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { tagID: string; name: string }, unknown>>;
+  deleteTag: ReturnType<typeof useMutation<void, Error, string, unknown>>;
   addAlbumTag: ReturnType<typeof useMutation<void, Error, { albumID: string; tag_id?: string; name?: string }, unknown>>;
   removeAlbumTag: ReturnType<typeof useMutation<void, Error, { albumID: string; tagID: string }, unknown>>;
   createSpin: ReturnType<typeof useMutation<{ id: string }, Error, { album_id: string; spun_at?: string; note?: string }, unknown>>;
@@ -320,6 +361,8 @@ function AppAuthed(props: {
   const [note, setNote] = useState("");
   const [selectedAlbumID, setSelectedAlbumID] = useState("");
   const [newTagName, setNewTagName] = useState("");
+  const [editingTagID, setEditingTagID] = useState("");
+  const [editingTagName, setEditingTagName] = useState("");
 
   const albumOptions = useMemo(() => {
     if (!albums.data) return [];
@@ -335,11 +378,16 @@ function AppAuthed(props: {
     return Array.from(set).sort((x, y) => x.localeCompare(y));
   }, [albums.data]);
 
-  if (props.path === "/spins") {
+  if (props.path === "/tags") {
     return (
-      <div className="mt-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm shadow-black/20">
-          <div className="font-medium">Create tag</div>
+      <div className="mt-6 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 shadow-sm shadow-black/20">
+        <div className="flex items-center justify-between gap-2">
+          <div className="font-medium">Tags</div>
+          <div className="text-xs text-zinc-400">{props.tagOptions.length} tags</div>
+        </div>
+
+        <div className="mt-3">
+          <div className="text-sm font-medium">Create tag</div>
           <form
             className="mt-2 flex gap-2"
             onSubmit={(e) => {
@@ -361,50 +409,143 @@ function AppAuthed(props: {
               disabled={!newTagName.trim() || props.createTag.isPending}
               type="submit"
             >
-              Add
+              {props.createTag.isPending ? "Adding…" : "Add"}
             </button>
           </form>
-          {props.createTag.isError ? (
-            <div className="mt-2 text-sm text-red-300">{String(props.createTag.error)}</div>
-          ) : null}
-
-          <div className="mt-6 border-t border-white/10 pt-4">
-            <div className="text-sm font-medium">Import play history (The Ogger Club)</div>
-            <div className="mt-2 space-y-2">
-              <input
-                className="block w-full text-sm text-zinc-300 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-900 hover:file:bg-white"
-                type="file"
-                accept=".csv,text/csv"
-                onChange={(e) => setOggerFile(e.target.files?.[0] ?? null)}
-              />
-              <input
-                className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
-                placeholder="Timezone (e.g. America/Los_Angeles)"
-                value={oggerTZ}
-                onChange={(e) => setOggerTZ(e.target.value)}
-              />
-              <button
-                type="button"
-                className="w-full rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
-                disabled={!oggerFile || oggerImport.isPending}
-                onClick={() => oggerImport.mutate()}
-              >
-                {oggerImport.isPending ? "Importing…" : "Import CSV"}
-              </button>
-              {oggerImport.isError ? (
-                <div className="text-sm text-red-300">{String(oggerImport.error)}</div>
-              ) : null}
-              {oggerImport.data ? (
-                <div className="text-xs text-zinc-400">
-                  Inserted {oggerImport.data.inserted_spins}, skipped {oggerImport.data.already_existed}, unmatched{" "}
-                  {oggerImport.data.unmatched_rows}, parse errors {oggerImport.data.parse_errors}.
-                </div>
-              ) : null}
-            </div>
-          </div>
+          {props.createTag.isError ? <div className="mt-2 text-sm text-red-300">{String(props.createTag.error)}</div> : null}
         </div>
 
-        <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-4 shadow-sm shadow-black/20">
+        <div className="mt-6 border-t border-white/10 pt-4">
+          <div className="text-sm font-medium">All tags</div>
+          <div className="mt-2 max-h-[640px] overflow-auto">
+            <ul className="space-y-2">
+              {props.tagOptions.map((t) => {
+                const editing = editingTagID === t.id;
+                return (
+                  <li key={t.id} className="rounded-md border border-white/10 bg-black/15 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        {editing ? (
+                          <input
+                            className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
+                            value={editingTagName}
+                            onChange={(e) => setEditingTagName(e.target.value)}
+                            autoFocus
+                          />
+                        ) : (
+                          <div className="truncate text-sm font-medium text-zinc-100">{t.name}</div>
+                        )}
+                        <div className="mt-1 text-xs text-zinc-500">{t.album_count} albums</div>
+                      </div>
+
+                      <div className="flex shrink-0 items-center gap-2">
+                        {editing ? (
+                          <>
+                            <button
+                              type="button"
+                              className="rounded-md bg-zinc-100 px-2 py-1.5 text-xs font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
+                              disabled={!editingTagName.trim() || props.updateTag.isPending}
+                              onClick={() => {
+                                const name = editingTagName.trim();
+                                if (!name) return;
+                                props.updateTag.mutate({ tagID: t.id, name });
+                                setEditingTagID("");
+                                setEditingTagName("");
+                              }}
+                            >
+                              {props.updateTag.isPending ? "Saving…" : "Save"}
+                            </button>
+                            <button
+                              type="button"
+                              className="rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5 text-xs font-medium text-zinc-100 hover:bg-white/[0.06]"
+                              onClick={() => {
+                                setEditingTagID("");
+                                setEditingTagName("");
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              type="button"
+                              className="text-xs text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white"
+                              onClick={() => {
+                                setEditingTagID(t.id);
+                                setEditingTagName(t.name);
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              className="text-xs text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white disabled:opacity-50"
+                              disabled={props.deleteTag.isPending}
+                              onClick={() => {
+                                if (!window.confirm(`Delete tag “${t.name}”? This removes it from all albums.`)) return;
+                                props.deleteTag.mutate(t.id);
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {props.updateTag.isError ? <div className="mt-2 text-sm text-red-300">{String(props.updateTag.error)}</div> : null}
+          {props.deleteTag.isError ? <div className="mt-2 text-sm text-red-300">{String(props.deleteTag.error)}</div> : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (props.path === "/import") {
+    return (
+      <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 shadow-sm shadow-black/20">
+        <div className="font-medium">Import play history (The Ogger Club)</div>
+        <div className="mt-2 space-y-2">
+          <input
+            className="block w-full text-sm text-zinc-300 file:mr-3 file:rounded-md file:border-0 file:bg-zinc-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-zinc-900 hover:file:bg-white"
+            type="file"
+            accept=".csv,text/csv"
+            onChange={(e) => setOggerFile(e.target.files?.[0] ?? null)}
+          />
+          <input
+            className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
+            placeholder="Timezone (e.g. America/Los_Angeles)"
+            value={oggerTZ}
+            onChange={(e) => setOggerTZ(e.target.value)}
+          />
+          <button
+            type="button"
+            className="w-full rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
+            disabled={!oggerFile || oggerImport.isPending}
+            onClick={() => oggerImport.mutate()}
+          >
+            {oggerImport.isPending ? "Importing…" : "Import CSV"}
+          </button>
+          {oggerImport.isError ? <div className="text-sm text-red-300">{String(oggerImport.error)}</div> : null}
+          {oggerImport.data ? (
+            <div className="text-xs text-zinc-400">
+              Inserted {oggerImport.data.inserted_spins}, skipped {oggerImport.data.already_existed}, unmatched{" "}
+              {oggerImport.data.unmatched_rows}, parse errors {oggerImport.data.parse_errors}.
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  if (props.path === "/spins") {
+    return (
+      <div className="mt-6 rounded-lg border border-violet-500/20 bg-violet-500/5 p-4 shadow-sm shadow-black/20">
           <div className="font-medium">Spins</div>
           <form
             className="mt-3 space-y-2"
@@ -493,7 +634,6 @@ function AppAuthed(props: {
               </ul>
             </div>
           </div>
-        </div>
       </div>
     );
   }

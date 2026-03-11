@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	discogs "github.com/stmcallister/go-discogs"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type ctxKey int
@@ -1028,6 +1029,99 @@ returning id
 			return
 		}
 		writeJSON(w, http.StatusCreated, resp{ID: id, Name: name})
+	}
+}
+
+func (a *App) handleUpdateTag() http.HandlerFunc {
+	type req struct {
+		Name string `json:"name"`
+	}
+	type resp struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := a.requireSession(r)
+		if err != nil {
+			writeJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+
+		tagID := strings.TrimSpace(chi.URLParam(r, "tagID"))
+		if tagID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("tagID required"))
+			return
+		}
+
+		var in req
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			writeJSONError(w, http.StatusBadRequest, errors.New("invalid json"))
+			return
+		}
+		name := strings.TrimSpace(in.Name)
+		if name == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("name is required"))
+			return
+		}
+
+		var out resp
+		err = a.db.QueryRow(r.Context(), `
+update tags
+set name = $3,
+    updated_at = now()
+where id = $1 and user_id = $2
+returning id, name
+`, tagID, userID, name).Scan(&out.ID, &out.Name)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				writeJSONError(w, http.StatusNotFound, errors.New("tag not found"))
+				return
+			}
+			var pgErr *pgconn.PgError
+			if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+				writeJSONError(w, http.StatusConflict, errors.New("tag name already exists"))
+				return
+			}
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+func (a *App) handleDeleteTag() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := a.requireSession(r)
+		if err != nil {
+			writeJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+
+		tagID := strings.TrimSpace(chi.URLParam(r, "tagID"))
+		if tagID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("tagID required"))
+			return
+		}
+
+		ct, err := a.db.Exec(r.Context(), `delete from tags where id = $1 and user_id = $2`, tagID, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if ct.RowsAffected() == 0 {
+			writeJSONError(w, http.StatusNotFound, errors.New("tag not found"))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 
