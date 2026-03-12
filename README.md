@@ -1,6 +1,6 @@
 # Vinyl Spins
 
-Multi-user hosted web app: **Go backend + Postgres + responsive React UI**.
+Hosted web app: **Go backend + Postgres + responsive React UI**.
 
 Features (MVP):
 - Connect/disconnect Discogs via **OAuth 1.0a**
