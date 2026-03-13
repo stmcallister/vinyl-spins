@@ -32,7 +32,7 @@ jobs:
       - name: Build & publish multi-platform images (API + UI)
         uses: depot/bake-action@v1
         with:
-          token: ${{ secrets.DEPOT_TOKEN }}
+          token: ${{ secrets.DEPOT_PROJ_TOKEN }}
           project: ${{ secrets.DEPOT_PROJECT }}
           files: docker-bake.hcl
           push: true
