@@ -724,6 +724,61 @@ function AppAuthed(props: {
           </div>
         </div>
 
+        <div className="mt-4 rounded-md border border-white/10 bg-black/15 p-3">
+          <div className="text-sm font-medium">Tags</div>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {(a?.tags ?? []).map((t) => (
+              <button
+                key={t.id}
+                className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 hover:bg-zinc-900"
+                title="Remove tag"
+                onClick={() => {
+                  if (!albumIDFromPath) return;
+                  props.removeAlbumTag.mutate({ albumID: albumIDFromPath, tagID: t.id });
+                  qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                }}
+                type="button"
+              >
+                {t.name} ×
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 flex items-center gap-2">
+            <select
+              className="flex-1 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs"
+              defaultValue=""
+              onChange={(e) => {
+                const id = e.target.value;
+                if (!id || !albumIDFromPath) return;
+                props.addAlbumTag.mutate({ albumID: albumIDFromPath, tag_id: id });
+                qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                e.currentTarget.value = "";
+              }}
+            >
+              <option value="">Add existing tag…</option>
+              {props.tagOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+            <button
+              className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
+              onClick={() => {
+                if (!albumIDFromPath) return;
+                const name = window.prompt("New tag name?");
+                if (!name) return;
+                props.addAlbumTag.mutate({ albumID: albumIDFromPath, name });
+                qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                qc.invalidateQueries({ queryKey: ["tags"] });
+              }}
+              type="button"
+            >
+              New…
+            </button>
+          </div>
+        </div>
+
         <div id="add-spin" className="mt-4 rounded-md border border-white/10 bg-black/15 p-3">
           <div className="text-sm font-medium">Add spin</div>
           <form
@@ -874,52 +929,29 @@ function AppAuthed(props: {
                     Spins: {a.spin_count}
                     {a.last_spun_at ? ` • Last: ${new Date(a.last_spun_at).toLocaleString()}` : ""}
                   </div>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {(a.tags ?? []).map((t) => (
-                      <button
-                        key={t.id}
-                        className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 hover:bg-zinc-900"
-                        title="Remove tag"
-                        onClick={() => props.removeAlbumTag.mutate({ albumID: a.id, tagID: t.id })}
-                        type="button"
-                      >
-                        {t.name}
-                      </button>
-                    ))}
-                  </div>
+                  {(a.tags ?? []).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(a.tags ?? []).map((t) => (
+                        <span
+                          key={t.id}
+                          className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-400"
+                        >
+                          {t.name}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              <div className="mt-2 flex items-center gap-2">
-                <select
-                  className="flex-1 rounded-md border border-white/10 bg-black/20 px-2 py-1 text-xs"
-                  defaultValue=""
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    if (!id) return;
-                    props.addAlbumTag.mutate({ albumID: a.id, tag_id: id });
-                    e.currentTarget.value = "";
-                  }}
-                >
-                  <option value="">Add existing tag…</option>
-                  {props.tagOptions.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.name}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
-                  onClick={() => {
-                    const name = window.prompt("New tag name?");
-                    if (!name) return;
-                    props.addAlbumTag.mutate({ albumID: a.id, name });
-                    qc.invalidateQueries({ queryKey: ["tags"] });
-                  }}
-                  type="button"
-                >
-                  New…
-                </button>
+                <div className="shrink-0">
+                  <button
+                    type="button"
+                    className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
+                    disabled={props.createSpin.isPending}
+                    onClick={() => props.createSpin.mutate({ album_id: a.id })}
+                  >
+                    Spin this Album
+                  </button>
+                </div>
               </div>
             </li>
           ))}
