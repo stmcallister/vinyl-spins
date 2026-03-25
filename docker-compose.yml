@@ -24,9 +24,12 @@ services:
     environment:
       PORT: "8080"
       DATABASE_URL: postgres://discogs:discogs@db:5432/discogs_listen_tracker?sslmode=disable
+      BACKUP_DIR: /data/backups
     command: ["sh", "-c", "migrate up && api"]
     ports:
       - "8081:8080"
+    volumes:
+      - ./backups:/data/backups
     depends_on:
       db:
         condition: service_healthy

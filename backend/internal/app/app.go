@@ -45,6 +45,11 @@ func New(ctx context.Context) (*App, error) {
 
 	a := &App{addr: addr, db: db}
 
+	// Start daily spins backup if BACKUP_DIR is configured.
+	if backupDir := os.Getenv("BACKUP_DIR"); backupDir != "" && db != nil {
+		StartDailyExport(ctx, db, backupDir)
+	}
+
 	r := chi.NewRouter()
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowedOrigins(),
