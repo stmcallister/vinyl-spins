@@ -82,7 +82,7 @@ order by s.spun_at asc
 	defer f.Close()
 
 	w := csv.NewWriter(f)
-	_ = w.Write([]string{"spin_id", "user_id", "discogs_username", "discogs_release_id", "album_title", "album_artist", "spun_at", "note"})
+	_ = w.Write([]string{"spin_id", "user_id", "discogs_username", "discogs_release_id", "record_title", "record_artist", "spun_at", "note"})
 
 	var count int
 	for rows.Next() {
@@ -91,12 +91,12 @@ order by s.spun_at asc
 			userID           string
 			discogsUsername  string
 			discogsReleaseID int64
-			albumTitle       string
-			albumArtist      string
+			recordTitle      string
+			recordArtist     string
 			spunAt           time.Time
 			note             string
 		)
-		if err := rows.Scan(&spinID, &userID, &discogsUsername, &discogsReleaseID, &albumTitle, &albumArtist, &spunAt, &note); err != nil {
+		if err := rows.Scan(&spinID, &userID, &discogsUsername, &discogsReleaseID, &recordTitle, &recordArtist, &spunAt, &note); err != nil {
 			return fmt.Errorf("scan row: %w", err)
 		}
 		_ = w.Write([]string{
@@ -104,8 +104,8 @@ order by s.spun_at asc
 			userID,
 			discogsUsername,
 			fmt.Sprintf("%d", discogsReleaseID),
-			albumTitle,
-			albumArtist,
+			recordTitle,
+			recordArtist,
 			spunAt.UTC().Format(time.RFC3339),
 			note,
 		})

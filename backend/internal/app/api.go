@@ -57,12 +57,12 @@ where id = $1
 	}
 }
 
-func (a *App) handleAlbums() http.HandlerFunc {
+func (a *App) handleRecords() http.HandlerFunc {
 	type tag struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
 	}
-	type album struct {
+	type record struct {
 		ID               string     `json:"id"`
 		DiscogsReleaseID int64      `json:"discogs_release_id"`
 		Title            string     `json:"title"`
@@ -77,7 +77,7 @@ func (a *App) handleAlbums() http.HandlerFunc {
 		Tags             []tag      `json:"tags"`
 	}
 
-	type albumQuery struct {
+	type recordQuery struct {
 		Q      string
 		Artist string
 		TagIDs []string
@@ -85,8 +85,8 @@ func (a *App) handleAlbums() http.HandlerFunc {
 		Order  string
 	}
 
-	parseAlbumQuery := func(v url.Values) albumQuery {
-		q := albumQuery{
+	parseRecordQuery := func(v url.Values) recordQuery {
+		q := recordQuery{
 			Q:      strings.TrimSpace(v.Get("q")),
 			Artist: strings.TrimSpace(v.Get("artist")),
 			Sort:   strings.TrimSpace(v.Get("sort")),
@@ -130,7 +130,7 @@ func (a *App) handleAlbums() http.HandlerFunc {
 			}
 		}
 
-		aq := parseAlbumQuery(r.URL.Query())
+		aq := parseRecordQuery(r.URL.Query())
 
 		var (
 			args     []any
@@ -198,10 +198,10 @@ limit 500
 		}
 		defer rows.Close()
 
-		var out []album
-		var albumIDs []string
+		var out []record
+		var recordIDs []string
 		for rows.Next() {
-			var a album
+			var a record
 			if err := rows.Scan(&a.ID, &a.DiscogsReleaseID, &a.Title, &a.Artist, &a.RecordLabel, &a.Year, &a.ThumbURL, &a.ResourceURL, &a.LastSyncedAt, &a.SpinCount, &a.LastSpunAt); err != nil {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
@@ -217,7 +217,7 @@ limit 500
 			}
 			a.Tags = []tag{}
 			out = append(out, a)
-			albumIDs = append(albumIDs, a.ID)
+			recordIDs = append(recordIDs, a.ID)
 		}
 		if rows.Err() != nil {
 			writeJSONError(w, http.StatusInternalServerError, rows.Err())
@@ -225,35 +225,35 @@ limit 500
 		}
 
 		// Attach tags in a second query (avoids complex aggregation).
-		if len(albumIDs) > 0 {
+		if len(recordIDs) > 0 {
 			lrows, err := a.db.Query(r.Context(), `
 select at.album_id, t.id, t.name
 from album_tags at
 join tags t on t.id = at.tag_id and t.user_id = at.user_id
 where at.user_id = $1 and at.album_id = any($2::uuid[])
 order by t.name asc
-`, userID, albumIDs)
+`, userID, recordIDs)
 			if err != nil {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			}
 			defer lrows.Close()
 
-			byAlbum := make(map[string][]tag, len(albumIDs))
+			byRecord := make(map[string][]tag, len(recordIDs))
 			for lrows.Next() {
-				var albumID, tagID, name string
-				if err := lrows.Scan(&albumID, &tagID, &name); err != nil {
+				var recordID, tagID, name string
+				if err := lrows.Scan(&recordID, &tagID, &name); err != nil {
 					writeJSONError(w, http.StatusInternalServerError, err)
 					return
 				}
-				byAlbum[albumID] = append(byAlbum[albumID], tag{ID: tagID, Name: name})
+				byRecord[recordID] = append(byRecord[recordID], tag{ID: tagID, Name: name})
 			}
 			if lrows.Err() != nil {
 				writeJSONError(w, http.StatusInternalServerError, lrows.Err())
 				return
 			}
 			for i := range out {
-				out[i].Tags = byAlbum[out[i].ID]
+				out[i].Tags = byRecord[out[i].ID]
 			}
 		}
 
@@ -303,7 +303,7 @@ where user_id = $1 and provider = 'discogs'
 	return discogs.NewOAuthClient(consumerKey, consumerSecret, accessToken, accessSecret).WithUserAgent(discogsUserAgent()), nil
 }
 
-func (a *App) handlePickAlbum() http.HandlerFunc {
+func (a *App) handlePickRecord() http.HandlerFunc {
 	type resp struct {
 		ID              string     `json:"id"`
 		DiscogsReleaseID int64      `json:"discogs_release_id"`
@@ -327,7 +327,7 @@ func (a *App) handlePickAlbum() http.HandlerFunc {
 			return
 		}
 
-		// Same filters as /api/albums (optional).
+		// Same filters as /api/records (optional).
 		q := strings.TrimSpace(r.URL.Query().Get("q"))
 		artist := strings.TrimSpace(r.URL.Query().Get("artist"))
 		var tagIDs []string
@@ -410,7 +410,7 @@ limit 1
 		if err != nil {
 			// No rows means no albums matched.
 			if strings.Contains(err.Error(), "no rows") {
-				writeJSONError(w, http.StatusNotFound, errors.New("no albums match filters"))
+				writeJSONError(w, http.StatusNotFound, errors.New("no records match filters"))
 				return
 			}
 			writeJSONError(w, http.StatusInternalServerError, err)
@@ -431,7 +431,7 @@ limit 1
 	}
 }
 
-func (a *App) handleAlbumDetail() http.HandlerFunc {
+func (a *App) handleRecordDetail() http.HandlerFunc {
 	type tag struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`
@@ -488,9 +488,9 @@ func (a *App) handleAlbumDetail() http.HandlerFunc {
 			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
 			return
 		}
-		albumID := strings.TrimSpace(chi.URLParam(r, "albumID"))
-		if albumID == "" {
-			writeJSONError(w, http.StatusBadRequest, errors.New("albumID required"))
+		recordID := strings.TrimSpace(chi.URLParam(r, "recordID"))
+		if recordID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("recordID required"))
 			return
 		}
 
@@ -511,10 +511,10 @@ from albums a
 left join spins s on s.album_id = a.id and s.user_id = a.user_id
 where a.user_id = $1 and a.id = $2
 group by a.id
-`, userID, albumID).Scan(&out.ID, &out.DiscogsReleaseID, &out.Title, &out.Artist, &out.Year, &out.ThumbURL, &out.ResourceURL, &out.LastSyncedAt, &out.SpinCount, &out.LastSpunAt)
+`, userID, recordID).Scan(&out.ID, &out.DiscogsReleaseID, &out.Title, &out.Artist, &out.Year, &out.ThumbURL, &out.ResourceURL, &out.LastSyncedAt, &out.SpinCount, &out.LastSpunAt)
 		if err != nil {
 			if strings.Contains(err.Error(), "no rows") {
-				writeJSONError(w, http.StatusNotFound, errors.New("album not found"))
+				writeJSONError(w, http.StatusNotFound, errors.New("record not found"))
 				return
 			}
 			writeJSONError(w, http.StatusInternalServerError, err)
@@ -538,7 +538,7 @@ from album_tags at
 join tags t on t.id = at.tag_id and t.user_id = at.user_id
 where at.user_id = $1 and at.album_id = $2
 order by t.name asc
-`, userID, albumID)
+`, userID, recordID)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
@@ -558,14 +558,14 @@ order by t.name asc
 			return
 		}
 
-		// Spins for this album
+		// Spins for this record
 		srows, err := a.db.Query(r.Context(), `
 select id, spun_at, nullif(note, '') as note
 from spins
 where user_id = $1 and album_id = $2
 order by spun_at desc
 limit 500
-`, userID, albumID)
+`, userID, recordID)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
@@ -585,7 +585,7 @@ limit 500
 			return
 		}
 
-		// Discogs details (best-effort; still return album even if Discogs fails)
+		// Discogs details (best-effort; still return record even if Discogs fails)
 		if out.DiscogsReleaseID != 0 {
 			ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 			defer cancel()
@@ -942,9 +942,9 @@ func (a *App) handleLabels() http.HandlerFunc {
 
 func (a *App) handleTags() http.HandlerFunc {
 	type tag struct {
-		ID         string `json:"id"`
-		Name       string `json:"name"`
-		AlbumCount int    `json:"album_count"`
+		ID          string `json:"id"`
+		Name        string `json:"name"`
+		RecordCount int    `json:"record_count"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := a.requireSession(r)
@@ -972,7 +972,7 @@ order by t.name asc
 		var out []tag
 		for rows.Next() {
 			var x tag
-			if err := rows.Scan(&x.ID, &x.Name, &x.AlbumCount); err != nil {
+			if err := rows.Scan(&x.ID, &x.Name, &x.RecordCount); err != nil {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			}
@@ -1125,7 +1125,7 @@ func (a *App) handleDeleteTag() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleAddAlbumTag() http.HandlerFunc {
+func (a *App) handleAddRecordTag() http.HandlerFunc {
 	type req struct {
 		TagID string `json:"tag_id,omitempty"`
 		Name  string `json:"name,omitempty"` // optional: create/find tag by name
@@ -1140,20 +1140,20 @@ func (a *App) handleAddAlbumTag() http.HandlerFunc {
 			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
 			return
 		}
-		albumID := strings.TrimSpace(chi.URLParam(r, "albumID"))
-		if albumID == "" {
-			writeJSONError(w, http.StatusBadRequest, errors.New("albumID required"))
+		recordID := strings.TrimSpace(chi.URLParam(r, "recordID"))
+		if recordID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("recordID required"))
 			return
 		}
 
-		// Ensure album belongs to user.
+		// Ensure record belongs to user.
 		var ok bool
-		if err := a.db.QueryRow(r.Context(), `select exists(select 1 from albums where id=$1 and user_id=$2)`, albumID, userID).Scan(&ok); err != nil {
+		if err := a.db.QueryRow(r.Context(), `select exists(select 1 from albums where id=$1 and user_id=$2)`, recordID, userID).Scan(&ok); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
 		}
 		if !ok {
-			writeJSONError(w, http.StatusNotFound, errors.New("album not found"))
+			writeJSONError(w, http.StatusNotFound, errors.New("record not found"))
 			return
 		}
 
@@ -1198,7 +1198,7 @@ returning id
 insert into album_tags (user_id, album_id, tag_id)
 values ($1, $2, $3)
 on conflict (album_id, tag_id) do nothing
-`, userID, albumID, tagID)
+`, userID, recordID, tagID)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
@@ -1207,7 +1207,7 @@ on conflict (album_id, tag_id) do nothing
 	}
 }
 
-func (a *App) handleRemoveAlbumTag() http.HandlerFunc {
+func (a *App) handleRemoveRecordTag() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userID, err := a.requireSession(r)
 		if err != nil {
@@ -1218,22 +1218,22 @@ func (a *App) handleRemoveAlbumTag() http.HandlerFunc {
 			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
 			return
 		}
-		albumID := strings.TrimSpace(chi.URLParam(r, "albumID"))
+		recordID := strings.TrimSpace(chi.URLParam(r, "recordID"))
 		tagID := strings.TrimSpace(chi.URLParam(r, "tagID"))
-		if albumID == "" || tagID == "" {
-			writeJSONError(w, http.StatusBadRequest, errors.New("albumID and tagID required"))
+		if recordID == "" || tagID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("recordID and tagID required"))
 			return
 		}
 		ct, err := a.db.Exec(r.Context(), `
 delete from album_tags
 where user_id = $1 and album_id = $2 and tag_id = $3
-`, userID, albumID, tagID)
+`, userID, recordID, tagID)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
 		}
 		if ct.RowsAffected() == 0 {
-			writeJSONError(w, http.StatusNotFound, errors.New("album tag not found"))
+			writeJSONError(w, http.StatusNotFound, errors.New("record tag not found"))
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -1242,13 +1242,13 @@ where user_id = $1 and album_id = $2 and tag_id = $3
 
 func (a *App) handleSpins() http.HandlerFunc {
 	type spin struct {
-		ID          string    `json:"id"`
-		AlbumID     string    `json:"album_id"`
-		SpunAt      time.Time `json:"spun_at"`
-		Note        *string   `json:"note,omitempty"`
-		AlbumTitle  string    `json:"album_title"`
-		AlbumArtist string    `json:"album_artist"`
-		AlbumThumb  *string   `json:"album_thumb_url,omitempty"`
+		ID           string    `json:"id"`
+		RecordID     string    `json:"record_id"`
+		SpunAt       time.Time `json:"spun_at"`
+		Note         *string   `json:"note,omitempty"`
+		RecordTitle  string    `json:"record_title"`
+		RecordArtist string    `json:"record_artist"`
+		RecordThumb  *string   `json:"record_thumb_url,omitempty"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -1286,7 +1286,7 @@ limit 200
 		var out []spin
 		for rows.Next() {
 			var s spin
-			if err := rows.Scan(&s.ID, &s.AlbumID, &s.SpunAt, &s.Note, &s.AlbumTitle, &s.AlbumArtist, &s.AlbumThumb); err != nil {
+			if err := rows.Scan(&s.ID, &s.RecordID, &s.SpunAt, &s.Note, &s.RecordTitle, &s.RecordArtist, &s.RecordThumb); err != nil {
 				writeJSONError(w, http.StatusInternalServerError, err)
 				return
 			}
@@ -1302,9 +1302,9 @@ limit 200
 
 func (a *App) handleCreateSpin() http.HandlerFunc {
 	type req struct {
-		AlbumID string  `json:"album_id"`
-		SpunAt  *string `json:"spun_at,omitempty"` // RFC3339
-		Note    *string `json:"note,omitempty"`
+		RecordID string  `json:"record_id"`
+		SpunAt   *string `json:"spun_at,omitempty"` // RFC3339
+		Note     *string `json:"note,omitempty"`
 	}
 	type resp struct {
 		ID string `json:"id"`
@@ -1326,9 +1326,9 @@ func (a *App) handleCreateSpin() http.HandlerFunc {
 			writeJSONError(w, http.StatusBadRequest, errors.New("invalid json"))
 			return
 		}
-		in.AlbumID = strings.TrimSpace(in.AlbumID)
-		if in.AlbumID == "" {
-			writeJSONError(w, http.StatusBadRequest, errors.New("album_id is required"))
+		in.RecordID = strings.TrimSpace(in.RecordID)
+		if in.RecordID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("record_id is required"))
 			return
 		}
 
@@ -1347,14 +1347,14 @@ func (a *App) handleCreateSpin() http.HandlerFunc {
 			note = strings.TrimSpace(*in.Note)
 		}
 
-		// Ensure album belongs to user.
+		// Ensure record belongs to user.
 		var exists bool
-		if err := a.db.QueryRow(r.Context(), `select exists(select 1 from albums where id=$1 and user_id=$2)`, in.AlbumID, userID).Scan(&exists); err != nil {
+		if err := a.db.QueryRow(r.Context(), `select exists(select 1 from albums where id=$1 and user_id=$2)`, in.RecordID, userID).Scan(&exists); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
 		}
 		if !exists {
-			writeJSONError(w, http.StatusBadRequest, errors.New("unknown album_id"))
+			writeJSONError(w, http.StatusBadRequest, errors.New("unknown record_id"))
 			return
 		}
 
@@ -1363,7 +1363,7 @@ func (a *App) handleCreateSpin() http.HandlerFunc {
 insert into spins (user_id, album_id, spun_at, note)
 values ($1, $2, $3, nullif($4, ''))
 returning id
-`, userID, in.AlbumID, spunAt, note).Scan(&id)
+`, userID, in.RecordID, spunAt, note).Scan(&id)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
@@ -1404,7 +1404,7 @@ func (a *App) handleDeleteSpin() http.HandlerFunc {
 	}
 }
 
-func (a *App) handleAlbumsSync() http.HandlerFunc {
+func (a *App) handleRecordsSync() http.HandlerFunc {
 	type resp struct {
 		Status string `json:"status"`
 	}

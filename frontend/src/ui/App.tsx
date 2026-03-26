@@ -95,10 +95,10 @@ export function App() {
     enabled: me.isSuccess,
   });
 
-  const syncAlbums = useMutation({
-    mutationFn: api.syncAlbums,
+  const syncRecords = useMutation({
+    mutationFn: api.syncRecords,
     onSuccess: async () => {
-      await Promise.all([qc.invalidateQueries({ queryKey: ["albums"] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["records"] })]);
     },
   });
 
@@ -116,8 +116,8 @@ export function App() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["tags"] }),
-        qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
+        qc.invalidateQueries({ queryKey: ["recordDetail"] }),
       ]);
     },
   });
@@ -129,31 +129,31 @@ export function App() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["tags"] }),
-        qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
+        qc.invalidateQueries({ queryKey: ["recordDetail"] }),
       ]);
     },
   });
 
-  const addAlbumTag = useMutation({
-    mutationFn: async (input: { albumID: string; tag_id?: string; name?: string }) => {
-      await api.addAlbumTag(input.albumID, { tag_id: input.tag_id, name: input.name });
+  const addRecordTag = useMutation({
+    mutationFn: async (input: { recordID: string; tag_id?: string; name?: string }) => {
+      await api.addRecordTag(input.recordID, { tag_id: input.tag_id, name: input.name });
     },
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["albums"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
         qc.invalidateQueries({ queryKey: ["tags"] }),
       ]);
     },
   });
 
-  const removeAlbumTag = useMutation({
-    mutationFn: async (input: { albumID: string; tagID: string }) => {
-      await api.removeAlbumTag(input.albumID, input.tagID);
+  const removeRecordTag = useMutation({
+    mutationFn: async (input: { recordID: string; tagID: string }) => {
+      await api.removeRecordTag(input.recordID, input.tagID);
     },
     onSuccess: async () => {
       await Promise.all([
-        qc.invalidateQueries({ queryKey: ["albums"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
         qc.invalidateQueries({ queryKey: ["tags"] }),
       ]);
     },
@@ -164,8 +164,8 @@ export function App() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["spins"] }),
-        qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
+        qc.invalidateQueries({ queryKey: ["recordDetail"] }),
       ]);
     },
   });
@@ -175,8 +175,8 @@ export function App() {
     onSuccess: async () => {
       await Promise.all([
         qc.invalidateQueries({ queryKey: ["spins"] }),
-        qc.invalidateQueries({ queryKey: ["albums"] }),
-        qc.invalidateQueries({ queryKey: ["albumDetail"] }),
+        qc.invalidateQueries({ queryKey: ["records"] }),
+        qc.invalidateQueries({ queryKey: ["recordDetail"] }),
       ]);
     },
   });
@@ -194,14 +194,14 @@ export function App() {
   });
 
   const pickTop = useMutation({
-    mutationFn: () => api.pickAlbum(),
-    onSuccess: (a) => navigate(`/albums/${a.id}`),
+    mutationFn: () => api.pickRecord(),
+    onSuccess: (a) => navigate(`/records/${a.id}`),
   });
 
   const nav = (
     <nav className="mt-2 flex flex-wrap items-center gap-3 text-sm">
       <NavLink active={path === "/"} onClick={() => navigate("/")}>
-        Albums
+        Records
       </NavLink>
       <NavLink active={path === "/spins"} onClick={() => navigate("/spins")}>
         Spins
@@ -220,7 +220,7 @@ export function App() {
         className="ml-1 rounded-md border border-white/10 bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-100 hover:bg-sky-500/15 disabled:opacity-50"
         onClick={() => pickTop.mutate()}
         disabled={pickTop.isPending}
-        title="Pick a weighted random album"
+        title="Pick a weighted random record"
       >
         {pickTop.isPending ? "Picking…" : "Pick random"}
       </button>
@@ -238,7 +238,7 @@ export function App() {
             <div className="text-sm text-zinc-400">
               {me.isSuccess
                 ? `Connected as ${me.data.discogs_username}`
-                : "Connect Discogs to start syncing albums"}
+                : "Connect Discogs to start syncing records"}
             </div>
             {me.isSuccess ? nav : null}
           </div>
@@ -247,10 +247,10 @@ export function App() {
               <>
                 <button
                   className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-white/[0.06]"
-                  onClick={() => syncAlbums.mutate()}
-                  disabled={syncAlbums.isPending}
+                  onClick={() => syncRecords.mutate()}
+                  disabled={syncRecords.isPending}
                 >
-                  {syncAlbums.isPending ? "Syncing…" : "Sync albums"}
+                  {syncRecords.isPending ? "Syncing…" : "Sync records"}
                 </button>
                 <button
                   className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
@@ -282,8 +282,8 @@ export function App() {
             createTag={createTag}
             updateTag={updateTag}
             deleteTag={deleteTag}
-            addAlbumTag={addAlbumTag}
-            removeAlbumTag={removeAlbumTag}
+            addRecordTag={addRecordTag}
+            removeRecordTag={removeRecordTag}
             createSpin={createSpin}
             deleteSpin={deleteSpin}
           />
@@ -303,13 +303,13 @@ export function App() {
 
 function AppAuthed(props: {
   path: string;
-  tagOptions: Array<{ id: string; name: string; album_count: number }>;
+  tagOptions: Array<{ id: string; name: string; record_count: number }>;
   createTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { name: string }, unknown>>;
   updateTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { tagID: string; name: string }, unknown>>;
   deleteTag: ReturnType<typeof useMutation<void, Error, string, unknown>>;
-  addAlbumTag: ReturnType<typeof useMutation<void, Error, { albumID: string; tag_id?: string; name?: string }, unknown>>;
-  removeAlbumTag: ReturnType<typeof useMutation<void, Error, { albumID: string; tagID: string }, unknown>>;
-  createSpin: ReturnType<typeof useMutation<{ id: string }, Error, { album_id: string; spun_at?: string; note?: string }, unknown>>;
+  addRecordTag: ReturnType<typeof useMutation<void, Error, { recordID: string; tag_id?: string; name?: string }, unknown>>;
+  removeRecordTag: ReturnType<typeof useMutation<void, Error, { recordID: string; tagID: string }, unknown>>;
+  createSpin: ReturnType<typeof useMutation<{ id: string }, Error, { record_id: string; spun_at?: string; note?: string }, unknown>>;
   deleteSpin: ReturnType<typeof useMutation<void, Error, string, unknown>>;
 }) {
   const qc = useQueryClient();
@@ -320,10 +320,10 @@ function AppAuthed(props: {
   const [sort, setSort] = useState<"artist" | "title" | "spin_count" | "last_spun_at">("artist");
   const [order, setOrder] = useState<"asc" | "desc">("asc");
 
-  const albums = useQuery({
-    queryKey: ["albums", { search, artistFilter, tagFilterIDs, sort, order }],
+  const records = useQuery({
+    queryKey: ["records", { search, artistFilter, tagFilterIDs, sort, order }],
     queryFn: () =>
-      api.albums({
+      api.records({
         q: search || undefined,
         artist: artistFilter || undefined,
         tag_ids: tagFilterIDs.length ? tagFilterIDs.join(",") : undefined,
@@ -338,11 +338,11 @@ function AppAuthed(props: {
     enabled: props.path === "/spins",
   });
 
-  const albumIDFromPath = props.path.startsWith("/albums/") ? props.path.split("/")[2] : "";
-  const albumDetail = useQuery({
-    queryKey: ["albumDetail", albumIDFromPath],
-    queryFn: () => api.albumDetail(albumIDFromPath),
-    enabled: !!albumIDFromPath,
+  const recordIDFromPath = props.path.startsWith("/records/") ? props.path.split("/")[2] : "";
+  const recordDetail = useQuery({
+    queryKey: ["recordDetail", recordIDFromPath],
+    queryFn: () => api.recordDetail(recordIDFromPath),
+    enabled: !!recordIDFromPath,
   });
 
   const [oggerFile, setOggerFile] = useState<File | null>(null);
@@ -353,30 +353,30 @@ function AppAuthed(props: {
       return await api.importOggerPlaylog(oggerFile, { tz: oggerTZ || undefined });
     },
     onSuccess: async () => {
-      await Promise.all([qc.invalidateQueries({ queryKey: ["spins"] }), qc.invalidateQueries({ queryKey: ["albums"] })]);
+      await Promise.all([qc.invalidateQueries({ queryKey: ["spins"] }), qc.invalidateQueries({ queryKey: ["records"] })]);
     },
   });
 
   const [spunAtLocal, setSpunAtLocal] = useState("");
   const [note, setNote] = useState("");
-  const [selectedAlbumID, setSelectedAlbumID] = useState("");
+  const [selectedRecordID, setSelectedRecordID] = useState("");
   const [newTagName, setNewTagName] = useState("");
   const [editingTagID, setEditingTagID] = useState("");
   const [editingTagName, setEditingTagName] = useState("");
 
-  const albumOptions = useMemo(() => {
-    if (!albums.data) return [];
-    return albums.data.map((a) => ({
+  const recordOptions = useMemo(() => {
+    if (!records.data) return [];
+    return records.data.map((a) => ({
       id: a.id,
       label: `${a.artist} — ${a.title}${a.year ? ` (${a.year})` : ""}`,
     }));
-  }, [albums.data]);
+  }, [records.data]);
 
   const artistOptions = useMemo(() => {
     const set = new Set<string>();
-    for (const a of albums.data ?? []) set.add(a.artist);
+    for (const a of records.data ?? []) set.add(a.artist);
     return Array.from(set).sort((x, y) => x.localeCompare(y));
-  }, [albums.data]);
+  }, [records.data]);
 
   if (props.path === "/tags") {
     return (
@@ -435,7 +435,7 @@ function AppAuthed(props: {
                         ) : (
                           <div className="truncate text-sm font-medium text-zinc-100">{t.name}</div>
                         )}
-                        <div className="mt-1 text-xs text-zinc-500">{t.album_count} albums</div>
+                        <div className="mt-1 text-xs text-zinc-500">{t.record_count} records</div>
                       </div>
 
                       <div className="flex shrink-0 items-center gap-2">
@@ -483,7 +483,7 @@ function AppAuthed(props: {
                               className="text-xs text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white disabled:opacity-50"
                               disabled={props.deleteTag.isPending}
                               onClick={() => {
-                                if (!window.confirm(`Delete tag “${t.name}”? This removes it from all albums.`)) return;
+                                if (!window.confirm(`Delete tag “${t.name}”? This removes it from all records.`)) return;
                                 props.deleteTag.mutate(t.id);
                               }}
                             >
@@ -551,10 +551,10 @@ function AppAuthed(props: {
             className="mt-3 space-y-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!selectedAlbumID) return;
+              if (!selectedRecordID) return;
               const spunAt = spunAtLocal ? new Date(spunAtLocal).toISOString() : undefined;
               props.createSpin.mutate({
-                album_id: selectedAlbumID,
+                record_id: selectedRecordID,
                 spun_at: spunAt,
                 note: note.trim() ? note.trim() : undefined,
               });
@@ -565,11 +565,11 @@ function AppAuthed(props: {
           >
             <select
               className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
-              value={selectedAlbumID}
-              onChange={(e) => setSelectedAlbumID(e.target.value)}
+              value={selectedRecordID}
+              onChange={(e) => setSelectedRecordID(e.target.value)}
             >
-              <option value="">Select an album…</option>
-              {albumOptions.map((o) => (
+              <option value="">Select a record…</option>
+              {recordOptions.map((o) => (
                 <option key={o.id} value={o.id}>
                   {o.label}
                 </option>
@@ -589,7 +589,7 @@ function AppAuthed(props: {
             />
             <button
               className="w-full rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
-              disabled={!selectedAlbumID || props.createSpin.isPending}
+              disabled={!selectedRecordID || props.createSpin.isPending}
               type="submit"
             >
               {props.createSpin.isPending ? "Saving…" : "Add spin"}
@@ -607,13 +607,13 @@ function AppAuthed(props: {
                   <li key={s.id} className="rounded-md border border-white/10 bg-black/15 p-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{s.album_artist}</div>
+                        <div className="truncate text-sm font-medium">{s.record_artist}</div>
                         <button
                           type="button"
                           className="truncate text-left text-sm text-zinc-300 underline decoration-zinc-700 underline-offset-2 hover:text-white"
-                          onClick={() => navigate(`/albums/${s.album_id}`)}
+                          onClick={() => navigate(`/records/${s.record_id}`)}
                         >
-                          {s.album_title}
+                          {s.record_title}
                         </button>
                         <div className="mt-1 text-xs text-zinc-500">
                           {new Date(s.spun_at).toLocaleString()}
@@ -638,8 +638,8 @@ function AppAuthed(props: {
     );
   }
 
-  if (albumIDFromPath) {
-    const a = albumDetail.data;
+  if (recordIDFromPath) {
+    const a = recordDetail.data;
     return (
       <div className="mt-6 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-4 shadow-sm shadow-black/20">
         <div className="flex items-start justify-between gap-3">
@@ -651,7 +651,7 @@ function AppAuthed(props: {
             )}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-lg font-semibold">{a?.artist ?? "Album"}</div>
+            <div className="truncate text-lg font-semibold">{a?.artist ?? "Record"}</div>
             <div className="truncate text-zinc-300">{a?.title ?? ""}</div>
             <div className="mt-1 text-sm text-zinc-400">
               {a?.year ? `Collection year: ${a.year}` : null}
@@ -685,9 +685,9 @@ function AppAuthed(props: {
           </div>
         </div>
 
-        {albumDetail.isError ? (
-          <div className="mt-3 text-sm text-red-300">{String(albumDetail.error)}</div>
-        ) : albumDetail.isLoading ? (
+        {recordDetail.isError ? (
+          <div className="mt-3 text-sm text-red-300">{String(recordDetail.error)}</div>
+        ) : recordDetail.isLoading ? (
           <div className="mt-3 text-sm text-zinc-400">Loading…</div>
         ) : null}
 
@@ -733,9 +733,9 @@ function AppAuthed(props: {
                 className="rounded-full border border-zinc-700 px-2 py-0.5 text-xs text-zinc-200 hover:bg-zinc-900"
                 title="Remove tag"
                 onClick={() => {
-                  if (!albumIDFromPath) return;
-                  props.removeAlbumTag.mutate({ albumID: albumIDFromPath, tagID: t.id });
-                  qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                  if (!recordIDFromPath) return;
+                  props.removeRecordTag.mutate({ recordID: recordIDFromPath, tagID: t.id });
+                  qc.invalidateQueries({ queryKey: ["recordDetail", recordIDFromPath] });
                 }}
                 type="button"
               >
@@ -749,9 +749,9 @@ function AppAuthed(props: {
               defaultValue=""
               onChange={(e) => {
                 const id = e.target.value;
-                if (!id || !albumIDFromPath) return;
-                props.addAlbumTag.mutate({ albumID: albumIDFromPath, tag_id: id });
-                qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                if (!id || !recordIDFromPath) return;
+                props.addRecordTag.mutate({ recordID: recordIDFromPath, tag_id: id });
+                qc.invalidateQueries({ queryKey: ["recordDetail", recordIDFromPath] });
                 e.currentTarget.value = "";
               }}
             >
@@ -765,11 +765,11 @@ function AppAuthed(props: {
             <button
               className="rounded-md border border-zinc-700 px-2 py-1 text-xs text-zinc-200 hover:bg-zinc-900"
               onClick={() => {
-                if (!albumIDFromPath) return;
+                if (!recordIDFromPath) return;
                 const name = window.prompt("New tag name?");
                 if (!name) return;
-                props.addAlbumTag.mutate({ albumID: albumIDFromPath, name });
-                qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+                props.addRecordTag.mutate({ recordID: recordIDFromPath, name });
+                qc.invalidateQueries({ queryKey: ["recordDetail", recordIDFromPath] });
                 qc.invalidateQueries({ queryKey: ["tags"] });
               }}
               type="button"
@@ -785,16 +785,16 @@ function AppAuthed(props: {
             className="mt-2 space-y-2"
             onSubmit={(e) => {
               e.preventDefault();
-              if (!albumIDFromPath) return;
+              if (!recordIDFromPath) return;
               const spunAt = spunAtLocal ? new Date(spunAtLocal).toISOString() : undefined;
               props.createSpin.mutate({
-                album_id: albumIDFromPath,
+                record_id: recordIDFromPath,
                 spun_at: spunAt,
                 note: note.trim() ? note.trim() : undefined,
               });
               setNote("");
               setSpunAtLocal("");
-              qc.invalidateQueries({ queryKey: ["albumDetail", albumIDFromPath] });
+              qc.invalidateQueries({ queryKey: ["recordDetail", recordIDFromPath] });
             }}
           >
             <input
@@ -822,14 +822,14 @@ function AppAuthed(props: {
     );
   }
 
-  // Default: albums page
+  // Default: records page
   return (
     <div className="mt-6 rounded-lg border border-sky-500/20 bg-sky-500/5 p-4 shadow-sm shadow-black/20">
       <div className="flex items-center justify-between gap-2">
-        <div className="font-medium">Albums</div>
+        <div className="font-medium">Records</div>
         <div className="flex items-center gap-2">
           <div className="text-xs text-zinc-400">
-            {albums.isLoading ? "Loading…" : `${albums.data?.length ?? 0} albums`}
+            {records.isLoading ? "Loading…" : `${records.data?.length ?? 0} records`}
           </div>
         </div>
       </div>
@@ -837,7 +837,7 @@ function AppAuthed(props: {
       <div className="mt-3 grid gap-2">
         <input
           className="w-full rounded-md border border-white/10 bg-black/20 px-3 py-2 text-sm"
-          placeholder="Search by album or artist…"
+          placeholder="Search by record or artist…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -905,11 +905,11 @@ function AppAuthed(props: {
         </div>
       </div>
 
-      {albums.isError ? <div className="mt-2 text-sm text-red-300">{String(albums.error)}</div> : null}
+      {records.isError ? <div className="mt-2 text-sm text-red-300">{String(records.error)}</div> : null}
 
       <div className="mt-3 max-h-[640px] overflow-auto">
         <ul className="space-y-2">
-          {(albums.data ?? []).map((a) => (
+          {(records.data ?? []).map((a) => (
             <li key={a.id} className="rounded-md border border-white/10 bg-black/15 p-2">
               <div className="flex items-start gap-3">
                 <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-zinc-800">
@@ -920,8 +920,8 @@ function AppAuthed(props: {
                   <button
                     type="button"
                     className="truncate text-left text-sm text-zinc-300 underline decoration-zinc-700 underline-offset-2 hover:text-white"
-                    onClick={() => navigate(`/albums/${a.id}`)}
-                    title="Open album detail"
+                    onClick={() => navigate(`/records/${a.id}`)}
+                    title="Open record detail"
                   >
                     {a.title}
                   </button>
@@ -947,9 +947,9 @@ function AppAuthed(props: {
                     type="button"
                     className="rounded-md bg-zinc-100 px-2 py-1 text-xs font-medium text-zinc-900 hover:bg-white disabled:opacity-50"
                     disabled={props.createSpin.isPending}
-                    onClick={() => props.createSpin.mutate({ album_id: a.id })}
+                    onClick={() => props.createSpin.mutate({ record_id: a.id })}
                   >
-                    Spin this Album
+                    Spin this Record
                   </button>
                 </div>
               </div>

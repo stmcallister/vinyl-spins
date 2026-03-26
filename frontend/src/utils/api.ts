@@ -53,7 +53,7 @@ export const api = {
     return await fetchJSON("/api/me");
   },
 
-  async albums(input?: {
+  async records(input?: {
     q?: string;
     artist?: string;
     tag_ids?: string; // comma-separated
@@ -76,7 +76,7 @@ export const api = {
     }>
   > {
     return await fetchJSON(
-      `/api/albums${qs({
+      `/api/records${qs({
         q: input?.q,
         artist: input?.artist,
         tag_ids: input?.tag_ids,
@@ -86,7 +86,7 @@ export const api = {
     );
   },
 
-  async pickAlbum(input?: { q?: string; artist?: string; tag_ids?: string }): Promise<{
+  async pickRecord(input?: { q?: string; artist?: string; tag_ids?: string }): Promise<{
     id: string;
     discogs_release_id: number;
     title: string;
@@ -98,7 +98,7 @@ export const api = {
     last_spun_at?: string;
   }> {
     return await fetchJSON(
-      `/api/albums/pick${qs({
+      `/api/records/pick${qs({
         q: input?.q,
         artist: input?.artist,
         tag_ids: input?.tag_ids,
@@ -106,7 +106,7 @@ export const api = {
     );
   },
 
-  async albumDetail(albumID: string): Promise<{
+  async recordDetail(recordID: string): Promise<{
     id: string;
     discogs_release_id: number;
     title: string;
@@ -133,14 +133,14 @@ export const api = {
       notes?: string;
     };
   }> {
-    return await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}`);
+    return await fetchJSON(`/api/records/${encodeURIComponent(recordID)}`);
   },
 
-  async syncAlbums(): Promise<{ status: string }> {
-    return await fetchJSON("/api/albums/sync", { method: "POST", body: "{}" });
+  async syncRecords(): Promise<{ status: string }> {
+    return await fetchJSON("/api/records/sync", { method: "POST", body: "{}" });
   },
 
-  async tags(): Promise<Array<{ id: string; name: string; album_count: number }>> {
+  async tags(): Promise<Array<{ id: string; name: string; record_count: number }>> {
     return await fetchJSON("/api/tags");
   },
 
@@ -156,21 +156,21 @@ export const api = {
     await fetchJSON(`/api/tags/${encodeURIComponent(tagID)}`, { method: "DELETE" });
   },
 
-  async addAlbumTag(albumID: string, input: { tag_id?: string; name?: string }): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags`, {
+  async addRecordTag(recordID: string, input: { tag_id?: string; name?: string }): Promise<void> {
+    await fetchJSON(`/api/records/${encodeURIComponent(recordID)}/tags`, {
       method: "POST",
       body: JSON.stringify(input),
     });
   },
 
-  async removeAlbumTag(albumID: string, tagID: string): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags/${encodeURIComponent(tagID)}`, {
+  async removeRecordTag(recordID: string, tagID: string): Promise<void> {
+    await fetchJSON(`/api/records/${encodeURIComponent(recordID)}/tags/${encodeURIComponent(tagID)}`, {
       method: "DELETE",
     });
   },
 
   // Backwards-compatible aliases (historically called these "labels").
-  async labels(): Promise<Array<{ id: string; name: string; album_count: number }>> {
+  async labels(): Promise<Array<{ id: string; name: string; record_count: number }>> {
     return await fetchJSON("/api/tags");
   },
 
@@ -178,15 +178,15 @@ export const api = {
     return await fetchJSON("/api/tags", { method: "POST", body: JSON.stringify(input) });
   },
 
-  async addAlbumLabel(albumID: string, input: { label_id?: string; name?: string }): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags`, {
+  async addRecordLabel(recordID: string, input: { label_id?: string; name?: string }): Promise<void> {
+    await fetchJSON(`/api/records/${encodeURIComponent(recordID)}/tags`, {
       method: "POST",
       body: JSON.stringify({ tag_id: input.label_id, name: input.name }),
     });
   },
 
-  async removeAlbumLabel(albumID: string, labelID: string): Promise<void> {
-    await fetchJSON(`/api/albums/${encodeURIComponent(albumID)}/tags/${encodeURIComponent(labelID)}`, {
+  async removeRecordLabel(recordID: string, labelID: string): Promise<void> {
+    await fetchJSON(`/api/records/${encodeURIComponent(recordID)}/tags/${encodeURIComponent(labelID)}`, {
       method: "DELETE",
     });
   },
@@ -194,18 +194,18 @@ export const api = {
   async spins(): Promise<
     Array<{
       id: string;
-      album_id: string;
+      record_id: string;
       spun_at: string;
       note?: string;
-      album_title: string;
-      album_artist: string;
-      album_thumb_url?: string;
+      record_title: string;
+      record_artist: string;
+      record_thumb_url?: string;
     }>
   > {
     return await fetchJSON("/api/spins");
   },
 
-  async createSpin(input: { album_id: string; spun_at?: string; note?: string }): Promise<{ id: string }> {
+  async createSpin(input: { record_id: string; spun_at?: string; note?: string }): Promise<{ id: string }> {
     return await fetchJSON("/api/spins", { method: "POST", body: JSON.stringify(input) });
   },
 
@@ -234,4 +234,3 @@ export const api = {
     return (await res.json()) as ImportOggerPlaylogResponse;
   },
 };
-
