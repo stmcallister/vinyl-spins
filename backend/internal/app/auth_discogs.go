@@ -178,6 +178,21 @@ func (a *App) handleDiscogsOAuthCallback() http.HandlerFunc {
 			return
 		}
 
+		// If REGISTRATION_OPEN=0, block new users from registering.
+		if os.Getenv("REGISTRATION_OPEN") == "0" {
+			var exists bool
+			if err := a.db.QueryRow(r.Context(),
+				`select exists(select 1 from users where discogs_user_id = $1)`, ident.ID,
+			).Scan(&exists); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			if !exists {
+				writeJSONError(w, http.StatusForbidden, errors.New("registration is currently closed"))
+				return
+			}
+		}
+
 		userID, err := upsertDiscogsUserAndToken(r.Context(), a.db, ident.ID, ident.Username, accessTokenEnc, accessSecretEnc)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)

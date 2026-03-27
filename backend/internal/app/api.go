@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -28,6 +29,7 @@ func (a *App) handleMe() http.HandlerFunc {
 		UserID          string `json:"user_id"`
 		DiscogsUserID   int64  `json:"discogs_user_id"`
 		DiscogsUsername string `json:"discogs_username"`
+		IsAdmin         bool   `json:"is_admin"`
 	}
 
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -44,13 +46,17 @@ func (a *App) handleMe() http.HandlerFunc {
 		var out resp
 		out.UserID = userID
 		err = a.db.QueryRow(r.Context(), `
-select discogs_user_id, discogs_username
+select discogs_user_id, discogs_username, is_admin
 from users
 where id = $1
-`, userID).Scan(&out.DiscogsUserID, &out.DiscogsUsername)
+`, userID).Scan(&out.DiscogsUserID, &out.DiscogsUsername, &out.IsAdmin)
 		if err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
+		}
+		// Also grant admin if username is listed in ADMIN_DISCOGS_USERNAMES env var.
+		if !out.IsAdmin {
+			out.IsAdmin = isEnvAdmin(out.DiscogsUsername)
 		}
 
 		writeJSON(w, http.StatusOK, out)
@@ -1447,7 +1453,238 @@ func (a *App) requireSession(r *http.Request) (string, error) {
 	if userID == "" {
 		return "", errors.New("invalid session")
 	}
+	// Check user status — block suspended accounts.
+	if a.db != nil {
+		var status string
+		err := a.db.QueryRow(r.Context(), `select status from users where id = $1`, userID).Scan(&status)
+		if err != nil {
+			return "", errors.New("not authenticated")
+		}
+		if status != "active" {
+			return "", errors.New("account suspended")
+		}
+	}
 	return userID, nil
+}
+
+// handleDeleteMe deletes the authenticated user's account and all their data.
+func (a *App) handleDeleteMe() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := a.requireSession(r)
+		if err != nil {
+			writeJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+		// Foreign key cascades handle albums, spins, tags, oauth_tokens, etc.
+		if _, err := a.db.Exec(r.Context(), `delete from users where id = $1`, userID); err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		// Clear the session cookie.
+		setCookie(w, &http.Cookie{
+			Name:     sessionCookieName,
+			Value:    "",
+			Path:     "/",
+			HttpOnly: true,
+			SameSite: http.SameSiteLaxMode,
+			Secure:   cookieSecure(r),
+			MaxAge:   -1,
+		})
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// handleAdminUsers lists all users. Requires the caller to be an admin.
+func (a *App) handleAdminUsers() http.HandlerFunc {
+	type user struct {
+		ID              string `json:"id"`
+		DiscogsUserID   int64  `json:"discogs_user_id"`
+		DiscogsUsername string `json:"discogs_username"`
+		Status          string `json:"status"`
+		IsAdmin         bool   `json:"is_admin"`
+		RecordCount     int    `json:"record_count"`
+		SpinCount       int    `json:"spin_count"`
+		CreatedAt       string `json:"created_at"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if _, err := a.requireAdmin(r); err != nil {
+			writeJSONError(w, http.StatusForbidden, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+		rows, err := a.db.Query(r.Context(), `
+select
+  u.id,
+  u.discogs_user_id,
+  u.discogs_username,
+  u.status,
+  u.is_admin,
+  count(distinct a.id) as record_count,
+  count(distinct s.id) as spin_count,
+  u.created_at
+from users u
+left join albums a on a.user_id = u.id
+left join spins s on s.user_id = u.id
+group by u.id
+order by u.created_at desc
+`)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		defer rows.Close()
+		var out []user
+		for rows.Next() {
+			var u user
+			var createdAt time.Time
+			if err := rows.Scan(&u.ID, &u.DiscogsUserID, &u.DiscogsUsername, &u.Status, &u.IsAdmin, &u.RecordCount, &u.SpinCount, &createdAt); err != nil {
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			// Env-var admins appear as admin even if DB flag is false.
+			if !u.IsAdmin {
+				u.IsAdmin = isEnvAdmin(u.DiscogsUsername)
+			}
+			u.CreatedAt = createdAt.UTC().Format(time.RFC3339)
+			out = append(out, u)
+		}
+		if rows.Err() != nil {
+			writeJSONError(w, http.StatusInternalServerError, rows.Err())
+			return
+		}
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
+// handleAdminSetUserStatus sets a user's status to "active" or "suspended".
+func (a *App) handleAdminSetUserStatus() http.HandlerFunc {
+	type req struct {
+		Status string `json:"status"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		adminID, err := a.requireAdmin(r)
+		if err != nil {
+			writeJSONError(w, http.StatusForbidden, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+		targetUserID := strings.TrimSpace(chi.URLParam(r, "userID"))
+		if targetUserID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("userID required"))
+			return
+		}
+		if targetUserID == adminID {
+			writeJSONError(w, http.StatusBadRequest, errors.New("cannot change your own status"))
+			return
+		}
+		var in req
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			writeJSONError(w, http.StatusBadRequest, errors.New("invalid json"))
+			return
+		}
+		if in.Status != "active" && in.Status != "suspended" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("status must be 'active' or 'suspended'"))
+			return
+		}
+		ct, err := a.db.Exec(r.Context(), `update users set status = $1, updated_at = now() where id = $2`, in.Status, targetUserID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if ct.RowsAffected() == 0 {
+			writeJSONError(w, http.StatusNotFound, errors.New("user not found"))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// requireAdmin validates the session and checks that the caller is an admin —
+// either via the ADMIN_DISCOGS_USERNAMES env var or the is_admin DB column.
+func (a *App) requireAdmin(r *http.Request) (string, error) {
+	userID, err := a.requireSession(r)
+	if err != nil {
+		return "", err
+	}
+	if a.db == nil {
+		return "", errors.New("DATABASE_URL not configured")
+	}
+	var username string
+	var isAdmin bool
+	if err := a.db.QueryRow(r.Context(),
+		`select discogs_username, is_admin from users where id = $1`, userID,
+	).Scan(&username, &isAdmin); err != nil {
+		return "", errors.New("user not found")
+	}
+	if isAdmin || isEnvAdmin(username) {
+		return userID, nil
+	}
+	return "", errors.New("forbidden")
+}
+
+// isEnvAdmin reports whether username is listed in ADMIN_DISCOGS_USERNAMES.
+func isEnvAdmin(username string) bool {
+	for _, a := range strings.Split(os.Getenv("ADMIN_DISCOGS_USERNAMES"), ",") {
+		if strings.EqualFold(strings.TrimSpace(a), username) {
+			return true
+		}
+	}
+	return false
+}
+
+// handleAdminSetUserAdmin toggles the is_admin flag for a user.
+func (a *App) handleAdminSetUserAdmin() http.HandlerFunc {
+	type req struct {
+		IsAdmin bool `json:"is_admin"`
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		adminID, err := a.requireAdmin(r)
+		if err != nil {
+			writeJSONError(w, http.StatusForbidden, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+		targetUserID := strings.TrimSpace(chi.URLParam(r, "userID"))
+		if targetUserID == "" {
+			writeJSONError(w, http.StatusBadRequest, errors.New("userID required"))
+			return
+		}
+		if targetUserID == adminID {
+			writeJSONError(w, http.StatusBadRequest, errors.New("cannot change your own admin status"))
+			return
+		}
+		var in req
+		if err := json.NewDecoder(r.Body).Decode(&in); err != nil {
+			writeJSONError(w, http.StatusBadRequest, errors.New("invalid json"))
+			return
+		}
+		ct, err := a.db.Exec(r.Context(),
+			`update users set is_admin = $1, updated_at = now() where id = $2`,
+			in.IsAdmin, targetUserID,
+		)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		if ct.RowsAffected() == 0 {
+			writeJSONError(w, http.StatusNotFound, errors.New("user not found"))
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+	}
 }
 
 func writeJSON(w http.ResponseWriter, status int, v any) {

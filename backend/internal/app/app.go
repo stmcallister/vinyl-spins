@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -50,7 +51,18 @@ func New(ctx context.Context) (*App, error) {
 		StartDailyExport(ctx, db, backupDir)
 	}
 
+	// Per-IP rate limiter: 10 req/sec with burst of 40.
+	// Override with RATE_LIMIT_RPS / RATE_LIMIT_BURST env vars if needed.
+	rl := newRateLimiter(
+		envFloat("RATE_LIMIT_RPS", 10),
+		envFloat("RATE_LIMIT_BURST", 40),
+	)
+
 	r := chi.NewRouter()
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(rl.Middleware())
 	r.Use(cors.Handler(cors.Options{
 		AllowedOrigins:   allowedOrigins(),
 		AllowedMethods:   []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
@@ -75,6 +87,13 @@ func New(ctx context.Context) (*App, error) {
 	// API stubs
 	r.Route("/api", func(r chi.Router) {
 		r.Get("/me", a.handleMe())
+		r.Delete("/me", a.handleDeleteMe())
+
+		// Admin endpoints (protected by ADMIN_DISCOGS_USERNAMES env var).
+		r.Get("/admin/users", a.handleAdminUsers())
+		r.Post("/admin/users/{userID}/status", a.handleAdminSetUserStatus())
+		r.Post("/admin/users/{userID}/admin", a.handleAdminSetUserAdmin())
+
 		r.Get("/records", a.handleRecords())
 		r.Get("/records/pick", a.handlePickRecord())
 		r.Get("/records/{recordID}", a.handleRecordDetail())
@@ -106,6 +125,18 @@ func New(ctx context.Context) (*App, error) {
 func (a *App) Addr() string         { return a.addr }
 func (a *App) Router() http.Handler { return a.mux }
 func (a *App) DB() *pgxpool.Pool    { return a.db }
+
+func envFloat(key string, def float64) float64 {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	var f float64
+	if _, err := fmt.Sscanf(v, "%f", &f); err != nil || f <= 0 {
+		return def
+	}
+	return f
+}
 
 func getenvDefault(key, def string) string {
 	v := os.Getenv(key)

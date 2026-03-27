@@ -49,7 +49,7 @@ export const api = {
     return await res.text();
   },
 
-  async me(): Promise<{ user_id: string; discogs_user_id: number; discogs_username: string }> {
+  async me(): Promise<{ user_id: string; discogs_user_id: number; discogs_username: string; is_admin: boolean }> {
     return await fetchJSON("/api/me");
   },
 
@@ -211,6 +211,37 @@ export const api = {
 
   async deleteSpin(spinID: string): Promise<void> {
     await fetchJSON(`/api/spins/${encodeURIComponent(spinID)}`, { method: "DELETE" });
+  },
+
+  async adminUsers(): Promise<Array<{
+    id: string;
+    discogs_user_id: number;
+    discogs_username: string;
+    status: string;
+    is_admin: boolean;
+    record_count: number;
+    spin_count: number;
+    created_at: string;
+  }>> {
+    return await fetchJSON("/api/admin/users");
+  },
+
+  async adminSetUserStatus(userID: string, status: "active" | "suspended"): Promise<void> {
+    await fetchJSON(`/api/admin/users/${encodeURIComponent(userID)}/status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  async adminSetUserAdmin(userID: string, isAdmin: boolean): Promise<void> {
+    await fetchJSON(`/api/admin/users/${encodeURIComponent(userID)}/admin`, {
+      method: "POST",
+      body: JSON.stringify({ is_admin: isAdmin }),
+    });
+  },
+
+  async deleteMe(): Promise<void> {
+    await fetchJSON("/api/me", { method: "DELETE" });
   },
 
   async logout(): Promise<void> {

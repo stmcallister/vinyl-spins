@@ -215,6 +215,11 @@ export function App() {
       <NavLink active={path === "/api-health"} onClick={() => navigate("/api-health")}>
         API Health
       </NavLink>
+      {me.data?.is_admin ? (
+        <NavLink active={path === "/admin"} onClick={() => navigate("/admin")}>
+          Admin
+        </NavLink>
+      ) : null}
       <button
         type="button"
         className="ml-1 rounded-md border border-white/10 bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-100 hover:bg-sky-500/15 disabled:opacity-50"
@@ -278,6 +283,8 @@ export function App() {
         ) : me.isSuccess ? (
           <AppAuthed
             path={path}
+            currentUserID={me.data.user_id}
+            isAdmin={me.data.is_admin}
             tagOptions={tagOptions}
             createTag={createTag}
             updateTag={updateTag}
@@ -301,8 +308,125 @@ export function App() {
   );
 }
 
+function AdminPage(props: { currentUserID: string }) {
+  const qc = useQueryClient();
+
+  const users = useQuery({
+    queryKey: ["adminUsers"],
+    queryFn: api.adminUsers,
+  });
+
+  const setStatus = useMutation({
+    mutationFn: (input: { userID: string; status: "active" | "suspended" }) =>
+      api.adminSetUserStatus(input.userID, input.status),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminUsers"] }),
+  });
+
+  const setAdmin = useMutation({
+    mutationFn: (input: { userID: string; isAdmin: boolean }) =>
+      api.adminSetUserAdmin(input.userID, input.isAdmin),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminUsers"] }),
+  });
+
+  return (
+    <div className="mt-6 rounded-lg border border-red-500/20 bg-red-500/5 p-4 shadow-sm shadow-black/20">
+      <div className="flex items-center justify-between gap-2">
+        <div className="font-medium">Admin — Users</div>
+        <div className="text-xs text-zinc-400">{users.data?.length ?? 0} users</div>
+      </div>
+
+      {users.isError ? <div className="mt-3 text-sm text-red-300">{String(users.error)}</div> : null}
+      {users.isLoading ? <div className="mt-3 text-sm text-zinc-400">Loading…</div> : null}
+
+      {setStatus.isError ? <div className="mt-2 text-sm text-red-300">{String(setStatus.error)}</div> : null}
+      {setAdmin.isError ? <div className="mt-2 text-sm text-red-300">{String(setAdmin.error)}</div> : null}
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/10 text-left text-xs text-zinc-500">
+              <th className="pb-2 pr-4 font-medium">Username</th>
+              <th className="pb-2 pr-4 font-medium">Status</th>
+              <th className="pb-2 pr-4 font-medium">Admin</th>
+              <th className="pb-2 pr-4 font-medium">Records</th>
+              <th className="pb-2 pr-4 font-medium">Spins</th>
+              <th className="pb-2 pr-4 font-medium">Joined</th>
+              <th className="pb-2 font-medium">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(users.data ?? []).map((u) => {
+              const isSelf = u.id === props.currentUserID;
+              return (
+                <tr key={u.id} className="border-b border-white/5 last:border-0">
+                  <td className="py-2 pr-4">
+                    <span className="font-medium text-zinc-100">{u.discogs_username}</span>
+                    {isSelf ? <span className="ml-1.5 text-xs text-zinc-500">(you)</span> : null}
+                  </td>
+                  <td className="py-2 pr-4">
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        u.status === "active"
+                          ? "bg-emerald-500/10 text-emerald-300"
+                          : "bg-red-500/10 text-red-300"
+                      }`}
+                    >
+                      {u.status}
+                    </span>
+                  </td>
+                  <td className="py-2 pr-4 text-xs text-zinc-400">
+                    {u.is_admin ? <span className="text-amber-300">Admin</span> : "—"}
+                  </td>
+                  <td className="py-2 pr-4 text-xs text-zinc-400">{u.record_count}</td>
+                  <td className="py-2 pr-4 text-xs text-zinc-400">{u.spin_count}</td>
+                  <td className="py-2 pr-4 text-xs text-zinc-500">
+                    {new Date(u.created_at).toLocaleDateString()}
+                  </td>
+                  <td className="py-2">
+                    <div className="flex flex-wrap gap-2">
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          className="text-xs text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white disabled:opacity-50"
+                          disabled={setStatus.isPending}
+                          onClick={() =>
+                            setStatus.mutate({
+                              userID: u.id,
+                              status: u.status === "active" ? "suspended" : "active",
+                            })
+                          }
+                        >
+                          {u.status === "active" ? "Suspend" : "Unsuspend"}
+                        </button>
+                      )}
+                      {!isSelf && (
+                        <button
+                          type="button"
+                          className="text-xs text-zinc-300 underline decoration-zinc-600 underline-offset-2 hover:text-white disabled:opacity-50"
+                          disabled={setAdmin.isPending}
+                          onClick={() =>
+                            setAdmin.mutate({ userID: u.id, isAdmin: !u.is_admin })
+                          }
+                        >
+                          {u.is_admin ? "Remove admin" : "Make admin"}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 function AppAuthed(props: {
   path: string;
+  currentUserID: string;
+  isAdmin: boolean;
   tagOptions: Array<{ id: string; name: string; record_count: number }>;
   createTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { name: string }, unknown>>;
   updateTag: ReturnType<typeof useMutation<{ id: string; name: string }, Error, { tagID: string; name: string }, unknown>>;
@@ -820,6 +944,10 @@ function AppAuthed(props: {
         </div>
       </div>
     );
+  }
+
+  if (props.path === "/admin") {
+    return <AdminPage currentUserID={props.currentUserID} />;
   }
 
   // Default: records page
