@@ -239,7 +239,7 @@ export function App() {
       <header className="border-b border-white/10 bg-black/20">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <div>
-            <div className="text-lg font-semibold">Vinyl Spin Tracker</div>
+            <div className="text-lg font-semibold">Vinyl Spins</div>
             <div className="text-sm text-zinc-400">
               {me.isSuccess
                 ? `Connected as ${me.data.discogs_username}`
