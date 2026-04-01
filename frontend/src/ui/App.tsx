@@ -1,6 +1,38 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../utils/api";
+
+function useDarkMode(): [boolean, () => void] {
+  const [dark, setDark] = useState<boolean>(() => {
+    const stored = localStorage.getItem("vs-theme");
+    return stored ? stored === "dark" : true;
+  });
+
+  useEffect(() => {
+    if (dark) {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("vs-theme", dark ? "dark" : "light");
+  }, [dark]);
+
+  const toggle = useCallback(() => setDark((d) => !d), []);
+  return [dark, toggle];
+}
+
+function VinylIcon(props: { className?: string }) {
+  return (
+    <svg className={props.className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="12" cy="12" r="11" fill="#18181b" />
+      <circle cx="12" cy="12" r="10" fill="none" stroke="#27272a" strokeWidth="0.6" />
+      <circle cx="12" cy="12" r="8.5" fill="none" stroke="#27272a" strokeWidth="0.6" />
+      <circle cx="12" cy="12" r="7" fill="none" stroke="#27272a" strokeWidth="0.6" />
+      <circle cx="12" cy="12" r="5.5" fill="#e63946" />
+      <circle cx="12" cy="12" r="1.5" fill="#18181b" />
+    </svg>
+  );
+}
 
 function useHashPath(): string {
   const [path, setPath] = useState(() => window.location.hash.replace(/^#/, "") || "/");
@@ -20,8 +52,10 @@ function NavLink(props: { active: boolean; onClick: () => void; children: string
   return (
     <button
       type="button"
-      className={`underline decoration-white/25 underline-offset-2 hover:text-white ${
-        props.active ? "text-white" : "text-zinc-200"
+      className={`underline decoration-white/25 underline-offset-2 hover:text-white dark:hover:text-white ${
+        props.active
+          ? "text-zinc-900 dark:text-white font-medium"
+          : "text-zinc-500 dark:text-zinc-200"
       }`}
       onClick={props.onClick}
     >
@@ -72,6 +106,7 @@ function ApiHealthPage(props: { apiUrl: string }) {
 export function App() {
   const qc = useQueryClient();
   const path = useHashPath();
+  const [isDark, toggleDark] = useDarkMode();
 
   const tagApi = api as typeof api & {
     updateTag: (tagID: string, input: { name: string }) => Promise<{ id: string; name: string }>;
@@ -222,7 +257,7 @@ export function App() {
       ) : null}
       <button
         type="button"
-        className="ml-1 rounded-md border border-white/10 bg-sky-500/10 px-3 py-1.5 text-sm font-medium text-sky-100 hover:bg-sky-500/15 disabled:opacity-50"
+        className="ml-1 rounded-md border border-sky-200 bg-sky-50 px-3 py-1.5 text-sm font-medium text-sky-700 hover:bg-sky-100 disabled:opacity-50 dark:border-white/10 dark:bg-sky-500/10 dark:text-sky-100 dark:hover:bg-sky-500/15"
         onClick={() => pickTop.mutate()}
         disabled={pickTop.isPending}
         title="Pick a weighted random record"
@@ -235,12 +270,15 @@ export function App() {
   const tagOptions = useMemo(() => tags.data ?? [], [tags.data]);
 
   return (
-    <div className="min-h-dvh bg-gradient-to-b from-zinc-950 via-slate-950 to-slate-900">
-      <header className="border-b border-white/10 bg-black/20">
+    <div className="min-h-dvh bg-gradient-to-b from-zinc-50 to-white text-zinc-900 dark:from-zinc-950 dark:via-slate-950 dark:to-slate-900 dark:text-zinc-50">
+      <header className="border-b border-zinc-200 bg-white/90 backdrop-blur-sm dark:border-white/10 dark:bg-black/20">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
           <div>
-            <div className="text-lg font-semibold">Vinyl Spins</div>
-            <div className="text-sm text-zinc-400">
+            <div className="flex items-center gap-2">
+              <VinylIcon className="h-7 w-7 shrink-0" />
+              <div className="text-lg font-semibold">Vinyl Spins</div>
+            </div>
+            <div className="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
               {me.isSuccess
                 ? `Connected as ${me.data.discogs_username}`
                 : "Connect Discogs to start syncing records"}
@@ -248,17 +286,41 @@ export function App() {
             {me.isSuccess ? nav : null}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className="rounded-md border border-zinc-200 bg-transparent px-2 py-2 text-zinc-500 hover:bg-zinc-100 dark:border-white/10 dark:text-zinc-400 dark:hover:bg-white/[0.06]"
+              onClick={toggleDark}
+              title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            >
+              {isDark ? (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <line x1="12" y1="1" x2="12" y2="3" />
+                  <line x1="12" y1="21" x2="12" y2="23" />
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+                  <line x1="1" y1="12" x2="3" y2="12" />
+                  <line x1="21" y1="12" x2="23" y2="12" />
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
+              )}
+            </button>
             {me.isSuccess ? (
               <>
                 <button
-                  className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2 text-sm font-medium text-zinc-100 hover:bg-white/[0.06]"
+                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-100 dark:hover:bg-white/[0.06]"
                   onClick={() => syncRecords.mutate()}
                   disabled={syncRecords.isPending}
                 >
                   {syncRecords.isPending ? "Syncing…" : "Sync records"}
                 </button>
                 <button
-                  className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
+                  className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
                   onClick={() => logout.mutate()}
                   disabled={logout.isPending}
                 >
@@ -267,7 +329,7 @@ export function App() {
               </>
             ) : (
               <a
-                className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
+                className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
                 href={discogsStartHref}
               >
                 Connect Discogs
@@ -295,11 +357,11 @@ export function App() {
             deleteSpin={deleteSpin}
           />
         ) : me.isError ? (
-          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-200 shadow-sm shadow-black/20">
+          <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200">
             Not connected. Click <span className="font-medium">Connect Discogs</span> above to authenticate.
           </div>
         ) : (
-          <div className="mt-6 rounded-lg border border-white/10 bg-white/[0.04] p-4 text-sm text-zinc-200 shadow-sm shadow-black/20">
+          <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200">
             Loading session…
           </div>
         )}
