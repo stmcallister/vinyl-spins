@@ -852,11 +852,15 @@ function AppAuthed(props: {
           <div className="flex shrink-0 flex-col items-end gap-2">
             <button
               type="button"
-              className="rounded-md bg-zinc-100 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
-              onClick={() => document.getElementById("add-spin")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-              title="Jump to the add spin form"
+              className="rounded-md bg-zinc-800 px-3 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+              onClick={() => {
+                if (!recordIDFromPath) return;
+                props.createSpin.mutate({ record_id: recordIDFromPath });
+              }}
+              disabled={props.createSpin.isPending}
+              title="Log a spin right now"
             >
-              Add spin
+              {props.createSpin.isPending ? "Saving…" : "Spin now"}
             </button>
             {a?.resource_url ? (
               <a
@@ -965,8 +969,8 @@ function AppAuthed(props: {
           </div>
         </div>
 
-        <div id="add-spin" className="mt-4 rounded-md border border-white/10 bg-black/15 p-3">
-          <div className="text-sm font-medium">Add spin</div>
+        <div className="mt-4 rounded-md border border-white/10 bg-black/15 p-3">
+          <div className="text-sm font-medium">Add spin with details</div>
           <form
             className="mt-2 space-y-2"
             onSubmit={(e) => {
@@ -1000,7 +1004,7 @@ function AppAuthed(props: {
               disabled={props.createSpin.isPending}
               type="submit"
             >
-              {props.createSpin.isPending ? "Saving…" : "Add spin"}
+              {props.createSpin.isPending ? "Saving…" : "Save spin"}
             </button>
           </form>
         </div>
