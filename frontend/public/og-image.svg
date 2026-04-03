@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <!-- Page background gradient -->
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="60%" stop-color="#0c1120"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+
+    <!-- Record shine -->
+    <radialGradient id="shine" cx="42%" cy="38%" r="60%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.07"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Label gradient -->
+    <radialGradient id="label-shine" cx="35%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.25"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.15"/>
+    </radialGradient>
+
+    <!-- Subtle glow behind the record -->
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#e63946" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#e63946" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Left-side text fade -->
+    <linearGradient id="text-fade" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#09090b" stop-opacity="0"/>
+      <stop offset="8%" stop-color="#09090b" stop-opacity="1"/>
+      <stop offset="92%" stop-color="#09090b" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#09090b" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Clip for record -->
+    <clipPath id="record-clip">
+      <circle cx="860" cy="315" r="255"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid lines -->
+  <g stroke="#ffffff" stroke-opacity="0.025" stroke-width="1">
+    <line x1="0" y1="105" x2="1200" y2="105"/>
+    <line x1="0" y1="210" x2="1200" y2="210"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="420" x2="1200" y2="420"/>
+    <line x1="0" y1="525" x2="1200" y2="525"/>
+    <line x1="200" y1="0" x2="200" y2="630"/>
+    <line x1="400" y1="0" x2="400" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="800" y1="0" x2="800" y2="630"/>
+    <line x1="1000" y1="0" x2="1000" y2="630"/>
+  </g>
+
+  <!-- Glow behind record -->
+  <circle cx="860" cy="315" r="300" fill="url(#glow)"/>
+
+  <!-- ── Vinyl Record ── -->
+  <!-- Outer edge / record body -->
+  <circle cx="860" cy="315" r="252" fill="#111113"/>
+  <circle cx="860" cy="315" r="250" fill="#18181b"/>
+
+  <!-- Groove rings (many subtle rings) -->
+  <circle cx="860" cy="315" r="245" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="238" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="231" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="224" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="217" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="210" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="203" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="196" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="189" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="182" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="175" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="168" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="161" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="154" fill="none" stroke="#232325" stroke-width="0.9"/>
+  <circle cx="860" cy="315" r="147" fill="none" stroke="#27272a" stroke-width="1.2"/>
+  <circle cx="860" cy="315" r="140" fill="none" stroke="#232325" stroke-width="0.9"/>
+
+  <!-- Inner groove boundary -->
+  <circle cx="860" cy="315" r="133" fill="#18181b"/>
+
+  <!-- Label -->
+  <circle cx="860" cy="315" r="130" fill="#c1121f"/>
+  <circle cx="860" cy="315" r="130" fill="url(#label-shine)"/>
+
+  <!-- Label text -->
+  <text x="860" y="304" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="rgba(255,255,255,0.9)" letter-spacing="3">VINYL</text>
+  <text x="860" y="326" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="700" fill="rgba(255,255,255,0.9)" letter-spacing="3">SPINS</text>
+
+  <!-- Label detail line -->
+  <line x1="820" y1="338" x2="900" y2="338" stroke="rgba(255,255,255,0.3)" stroke-width="0.8"/>
+  <text x="860" y="352" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="10" fill="rgba(255,255,255,0.5)" letter-spacing="1.5">SIDE A</text>
+
+  <!-- Spindle hole -->
+  <circle cx="860" cy="315" r="8" fill="#09090b"/>
+  <circle cx="860" cy="315" r="5" fill="#111113"/>
+
+  <!-- Record surface shine -->
+  <circle cx="860" cy="315" r="250" fill="url(#shine)"/>
+
+  <!-- ── Left text content ── -->
+
+  <!-- Small eyebrow label -->
+  <rect x="80" y="178" width="160" height="28" rx="14" fill="#e63946" fill-opacity="0.15"/>
+  <rect x="80" y="178" width="160" height="28" rx="14" fill="none" stroke="#e63946" stroke-opacity="0.4" stroke-width="1"/>
+  <text x="160" y="197" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="12" font-weight="600" fill="#f87171" letter-spacing="2">TRACK YOUR VINYL</text>
+
+  <!-- Main title -->
+  <text x="80" y="278" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="800" fill="#fafafa" letter-spacing="-2">Vinyl</text>
+  <text x="80" y="364" font-family="system-ui, -apple-system, sans-serif" font-size="80" font-weight="800" fill="#fafafa" letter-spacing="-2">Spins</text>
+
+  <!-- Divider -->
+  <rect x="80" y="385" width="48" height="3" rx="2" fill="#e63946"/>
+
+  <!-- Tagline -->
+  <text x="80" y="428" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#a1a1aa" letter-spacing="-0.3">Log what you play. Rediscover</text>
+  <text x="80" y="458" font-family="system-ui, -apple-system, sans-serif" font-size="22" fill="#a1a1aa" letter-spacing="-0.3">what you love.</text>
+</svg>
