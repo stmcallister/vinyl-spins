@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../utils/api";
+import { ReportsPage } from "./ReportsPage";
 
 function useDarkMode(): [boolean, () => void] {
   const [dark, setDark] = useState<boolean>(() => {
@@ -243,6 +244,9 @@ export function App() {
       </NavLink>
       <NavLink active={path === "/tags"} onClick={() => navigate("/tags")}>
         Tags
+      </NavLink>
+      <NavLink active={path === "/reports"} onClick={() => navigate("/reports")}>
+        Reports
       </NavLink>
       <NavLink active={path === "/import"} onClick={() => navigate("/import")}>
         Import
@@ -563,6 +567,10 @@ function AppAuthed(props: {
     for (const a of records.data ?? []) set.add(a.artist);
     return Array.from(set).sort((x, y) => x.localeCompare(y));
   }, [records.data]);
+
+  if (props.path === "/reports") {
+    return <ReportsPage />;
+  }
 
   if (props.path === "/tags") {
     return (

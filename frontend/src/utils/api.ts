@@ -244,6 +244,16 @@ export const api = {
     await fetchJSON("/api/me", { method: "DELETE" });
   },
 
+  async reports(period: "week" | "month" = "week"): Promise<{
+    spins_over_time: Array<{ period: string; spin_count: number }>;
+    top_artists: Array<{ artist: string; spin_count: number; record_count: number }>;
+    never_played: Array<{ id: string; title: string; artist: string; year?: number; thumb_url?: string }>;
+    neglected: Array<{ id: string; title: string; artist: string; year?: number; thumb_url?: string; last_spun_at?: string; spin_count: number }>;
+    stats: { total_records: number; played_records: number; never_played: number; utilization_pct: number };
+  }> {
+    return await fetchJSON(`/api/reports?period=${period}`);
+  },
+
   async logout(): Promise<void> {
     await fetchJSON("/auth/logout", { method: "POST", body: "{}" });
   },

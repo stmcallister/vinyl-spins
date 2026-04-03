@@ -114,6 +114,8 @@ func New(ctx context.Context) (*App, error) {
 		r.Post("/spins", a.handleCreateSpin())
 		r.Delete("/spins/{spinID}", a.handleDeleteSpin())
 
+		r.Get("/reports", a.handleReports())
+
 		// Imports
 		r.Post("/import/ogger-playlog", a.handleImportOggerPlaylog())
 	})
