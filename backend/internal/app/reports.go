@@ -6,6 +6,169 @@ import (
 	"time"
 )
 
+func (a *App) handleCollectionReport() http.HandlerFunc {
+	type yearCount struct {
+		Year  int `json:"year"`
+		Count int `json:"count"`
+	}
+	type artistCount struct {
+		Artist string `json:"artist"`
+		Count  int    `json:"count"`
+	}
+	type labelCount struct {
+		Label string `json:"label"`
+		Count int    `json:"count"`
+	}
+	type formatCount struct {
+		Format string `json:"format"`
+		Count  int    `json:"count"`
+	}
+	type response struct {
+		ByYear         []yearCount   `json:"by_year"`
+		ByOriginalYear []yearCount   `json:"by_original_year"`
+		ByArtist       []artistCount `json:"by_artist"`
+		ByLabel        []labelCount  `json:"by_label"`
+		ByFormat       []formatCount `json:"by_format"`
+	}
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		userID, err := a.requireSession(r)
+		if err != nil {
+			writeJSONError(w, http.StatusUnauthorized, err)
+			return
+		}
+		if a.db == nil {
+			writeJSONError(w, http.StatusInternalServerError, errors.New("DATABASE_URL not configured"))
+			return
+		}
+
+		out := response{
+			ByYear:         []yearCount{},
+			ByOriginalYear: []yearCount{},
+			ByArtist:       []artistCount{},
+			ByLabel:        []labelCount{},
+			ByFormat:       []formatCount{},
+		}
+
+		// ── Records by pressing year ──────────────────────────────────────────
+		rows, err := a.db.Query(r.Context(), `
+select year, count(*)::int
+from albums
+where user_id = $1 and year is not null
+group by year
+order by year
+`, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for rows.Next() {
+			var yc yearCount
+			if err := rows.Scan(&yc.Year, &yc.Count); err != nil {
+				rows.Close()
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			out.ByYear = append(out.ByYear, yc)
+		}
+		rows.Close()
+
+		// ── Records by original year ──────────────────────────────────────────
+		rows, err = a.db.Query(r.Context(), `
+select original_year, count(*)::int
+from albums
+where user_id = $1 and original_year is not null
+group by original_year
+order by original_year
+`, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for rows.Next() {
+			var yc yearCount
+			if err := rows.Scan(&yc.Year, &yc.Count); err != nil {
+				rows.Close()
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			out.ByOriginalYear = append(out.ByOriginalYear, yc)
+		}
+		rows.Close()
+
+		// ── Records by artist ─────────────────────────────────────────────────
+		rows, err = a.db.Query(r.Context(), `
+select artist, count(*)::int
+from albums
+where user_id = $1
+group by artist
+order by count(*) desc, artist
+`, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for rows.Next() {
+			var ac artistCount
+			if err := rows.Scan(&ac.Artist, &ac.Count); err != nil {
+				rows.Close()
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			out.ByArtist = append(out.ByArtist, ac)
+		}
+		rows.Close()
+
+		// ── Records by label ──────────────────────────────────────────────────
+		rows, err = a.db.Query(r.Context(), `
+select coalesce(record_label, 'Unknown'), count(*)::int
+from albums
+where user_id = $1
+group by record_label
+order by count(*) desc, record_label
+`, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for rows.Next() {
+			var lc labelCount
+			if err := rows.Scan(&lc.Label, &lc.Count); err != nil {
+				rows.Close()
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			out.ByLabel = append(out.ByLabel, lc)
+		}
+		rows.Close()
+
+		// ── Records by format ─────────────────────────────────────────────────
+		rows, err = a.db.Query(r.Context(), `
+select coalesce(format, 'Unknown'), count(*)::int
+from albums
+where user_id = $1
+group by format
+order by count(*) desc, format
+`, userID)
+		if err != nil {
+			writeJSONError(w, http.StatusInternalServerError, err)
+			return
+		}
+		for rows.Next() {
+			var fc formatCount
+			if err := rows.Scan(&fc.Format, &fc.Count); err != nil {
+				rows.Close()
+				writeJSONError(w, http.StatusInternalServerError, err)
+				return
+			}
+			out.ByFormat = append(out.ByFormat, fc)
+		}
+		rows.Close()
+
+		writeJSON(w, http.StatusOK, out)
+	}
+}
+
 func (a *App) handleReports() http.HandlerFunc {
 	type spinOverTime struct {
 		Period    string `json:"period"`

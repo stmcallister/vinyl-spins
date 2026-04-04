@@ -80,6 +80,7 @@ where u.id = $1
 		year := rel.BasicInformation.Year
 		thumb := strings.TrimSpace(rel.BasicInformation.Thumb)
 		resourceURL := strings.TrimSpace(discogsReleaseURL(rel.ID, rel.BasicInformation))
+		format := primaryDiscogsFormat(rel.BasicInformation.Formats)
 
 		var yearPtr *int
 		if year != 0 {
@@ -97,10 +98,14 @@ where u.id = $1
 		if recordLabel != "" {
 			recordLabelPtr = &recordLabel
 		}
+		var formatPtr *string
+		if format != "" {
+			formatPtr = &format
+		}
 
 		_, err := tx.Exec(ctx, `
-insert into albums (user_id, discogs_release_id, title, artist, record_label, year, thumb_url, resource_url, last_synced_at)
-values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+insert into albums (user_id, discogs_release_id, title, artist, record_label, year, thumb_url, resource_url, format, last_synced_at)
+values ($1, $2, $3, $4, $5, $6, $7, $8, $9, now())
 on conflict (user_id, discogs_release_id) do update
 set title = excluded.title,
     artist = excluded.artist,
@@ -108,9 +113,10 @@ set title = excluded.title,
     year = excluded.year,
     thumb_url = excluded.thumb_url,
     resource_url = excluded.resource_url,
+    format = excluded.format,
     last_synced_at = now(),
     updated_at = now()
-`, userID, int64(rel.ID), title, artist, recordLabelPtr, yearPtr, thumbPtr, resourcePtr)
+`, userID, int64(rel.ID), title, artist, recordLabelPtr, yearPtr, thumbPtr, resourcePtr, formatPtr)
 		if err != nil {
 			return fmt.Errorf("upsert album: %w", err)
 		}
@@ -140,6 +146,28 @@ func firstDiscogsRecordLabel(labels []*discogs.Entity) string {
 		return ""
 	}
 	return labels[0].Name
+}
+
+// primaryDiscogsFormat extracts the most descriptive format label from Discogs format data.
+// It prefers physical size descriptions (LP, 7", 12", 10") over the generic format name.
+func primaryDiscogsFormat(formats []*discogs.Format) string {
+	sizeDescs := []string{`LP`, `7"`, `12"`, `10"`, `Flexi-disc`, `Shellac`}
+	for _, f := range formats {
+		if f == nil {
+			continue
+		}
+		for _, d := range f.Descriptions {
+			for _, s := range sizeDescs {
+				if d == s {
+					return d
+				}
+			}
+		}
+	}
+	if len(formats) > 0 && formats[0] != nil && formats[0].Name != "" {
+		return formats[0].Name
+	}
+	return ""
 }
 
 func discogsReleaseURL(releaseID int, bi *discogs.BasicInformation) string {

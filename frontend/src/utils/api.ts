@@ -254,6 +254,16 @@ export const api = {
     return await fetchJSON(`/api/reports?period=${period}`);
   },
 
+  async collectionReport(): Promise<{
+    by_year: Array<{ year: number; count: number }>;
+    by_original_year: Array<{ year: number; count: number }>;
+    by_artist: Array<{ artist: string; count: number }>;
+    by_label: Array<{ label: string; count: number }>;
+    by_format: Array<{ format: string; count: number }>;
+  }> {
+    return await fetchJSON("/api/collection-report");
+  },
+
   async logout(): Promise<void> {
     await fetchJSON("/auth/logout", { method: "POST", body: "{}" });
   },

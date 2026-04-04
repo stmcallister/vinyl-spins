@@ -627,6 +627,10 @@ limit 500
 						if m, err := c.GetMasterRelease(ctx, rel.MasterID); err == nil && m != nil && m.Year != 0 {
 							yy := m.Year
 							d.OriginalYear = &yy
+							// Persist so collection reports can use it.
+							_, _ = a.db.Exec(r.Context(), `
+update albums set original_year = $1 where id = $2 and user_id = $3 and original_year is distinct from $1
+`, yy, out.ID, userID)
 						}
 					}
 					out.Discogs = d

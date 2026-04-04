@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../utils/api";
 
+type CollectionReport = Awaited<ReturnType<typeof api.collectionReport>>;
+
 function navigate(to: string) {
   window.location.hash = to.startsWith("#") ? to : `#${to}`;
 }
@@ -105,13 +107,167 @@ function RecordRow(props: {
   );
 }
 
+function YearBarChart(props: { data: Array<{ year: number; count: number }>; label: string }) {
+  const { data } = props;
+  if (!data.length) return <div className="text-sm text-zinc-500">No data yet.</div>;
+
+  const max = Math.max(...data.map((d) => d.count), 1);
+
+  return (
+    <div>
+      <div className="flex items-end gap-px" style={{ height: "100px" }}>
+        {data.map((d) => {
+          const h = Math.max((d.count / max) * 100, d.count > 0 ? 2 : 0);
+          return (
+            <div key={d.year} className="group relative flex-1" style={{ height: "100%" }}>
+              <div className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded bg-zinc-800 px-2 py-1 text-xs text-white group-hover:block dark:bg-zinc-100 dark:text-zinc-900">
+                {d.year}: {d.count} {d.count === 1 ? "record" : "records"}
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 rounded-t-sm bg-red-500/70 hover:bg-red-500 transition-colors" style={{ height: `${h}%` }} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-1 flex gap-px">
+        {data.map((d, i) => (
+          <div key={d.year} className="flex-1 min-w-0">
+            {i % Math.max(1, Math.floor(data.length / 6)) === 0 ? (
+              <div className="truncate text-left text-[10px] text-zinc-400">{d.year}</div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CountList(props: {
+  data: Array<{ label: string; count: number }>;
+  emptyMsg: string;
+}) {
+  const { data } = props;
+  if (!data.length) return <div className="text-sm text-zinc-500">{props.emptyMsg}</div>;
+
+  const max = data[0]?.count ?? 1;
+  return (
+    <ul className="space-y-2">
+      {data.map((item, i) => {
+        const barPct = max > 0 ? (item.count / max) * 100 : 0;
+        return (
+          <li key={item.label} className="flex items-center gap-3">
+            <div className="w-5 shrink-0 text-right text-xs text-zinc-400">{i + 1}</div>
+            <div className="min-w-0 flex-1">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-medium">{item.label}</span>
+                <span className="shrink-0 text-xs text-zinc-400">
+                  {item.count} {item.count === 1 ? "record" : "records"}
+                </span>
+              </div>
+              <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-white/[0.06]">
+                <div className="h-full rounded-full bg-red-500" style={{ width: `${barPct}%` }} />
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+function CollectionReportSections(props: { data: CollectionReport }) {
+  const { data } = props;
+  const [yearTab, setYearTab] = useState<"pressing" | "original">("pressing");
+
+  const formatData = data.by_format.map((f) => ({ label: f.format, count: f.count }));
+  const artistData = data.by_artist.map((a) => ({ label: a.artist, count: a.count }));
+  const labelData = data.by_label.map((l) => ({ label: l.label, count: l.count }));
+
+  return (
+    <>
+      {/* ── Format breakdown ── */}
+      <section>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+          By Format
+        </h2>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {formatData.map((f) => (
+            <StatBox key={f.label} label={f.label} value={f.count} />
+          ))}
+          {!formatData.length && (
+            <div className="col-span-4 text-sm text-zinc-500">
+              Sync your collection to populate format data.
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Records by year ── */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="mb-4 flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Records by year</h2>
+          <div className="flex rounded-md border border-zinc-200 text-xs dark:border-white/10">
+            <button
+              className={`px-3 py-1.5 rounded-l-md transition-colors ${
+                yearTab === "pressing"
+                  ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+              onClick={() => setYearTab("pressing")}
+            >
+              Pressing year
+            </button>
+            <button
+              className={`px-3 py-1.5 rounded-r-md border-l border-zinc-200 transition-colors dark:border-white/10 ${
+                yearTab === "original"
+                  ? "bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              }`}
+              onClick={() => setYearTab("original")}
+            >
+              Original year
+            </button>
+          </div>
+        </div>
+        {yearTab === "pressing" ? (
+          <YearBarChart data={data.by_year} label="Pressing year" />
+        ) : data.by_original_year.length ? (
+          <YearBarChart data={data.by_original_year} label="Original year" />
+        ) : (
+          <div className="text-sm text-zinc-500">
+            Original years are fetched when you view individual record pages. Browse your collection to populate this chart.
+          </div>
+        )}
+      </section>
+
+      {/* ── By artist ── */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <h2 className="mb-4 text-sm font-semibold">Records by artist</h2>
+        <CountList data={artistData} emptyMsg="No records in collection." />
+      </section>
+
+      {/* ── By label ── */}
+      <section className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <h2 className="mb-4 text-sm font-semibold">Records by label</h2>
+        <CountList data={labelData} emptyMsg="No records in collection." />
+      </section>
+    </>
+  );
+}
+
 export function ReportsPage() {
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [neglectedTab, setNeglectedTab] = useState<"never" | "stale">("never");
+  const [activeTab, setActiveTab] = useState<"activity" | "collection">("activity");
 
   const report = useQuery({
     queryKey: ["reports", period],
     queryFn: () => api.reports(period),
+  });
+
+  const collectionReport = useQuery({
+    queryKey: ["collection-report"],
+    queryFn: () => api.collectionReport(),
+    enabled: activeTab === "collection",
   });
 
   const data = report.data;
