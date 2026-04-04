@@ -274,10 +274,50 @@ export function ReportsPage() {
 
   return (
     <div className="mt-6 space-y-6">
+      {/* ── Tab switcher ── */}
+      <div className="flex gap-1 rounded-lg border border-zinc-200 bg-zinc-50 p-1 dark:border-white/10 dark:bg-white/[0.03] w-fit">
+        <button
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "activity"
+              ? "bg-white shadow-sm dark:bg-white/[0.08] text-zinc-900 dark:text-white"
+              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+          onClick={() => setActiveTab("activity")}
+        >
+          Activity
+        </button>
+        <button
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            activeTab === "collection"
+              ? "bg-white shadow-sm dark:bg-white/[0.08] text-zinc-900 dark:text-white"
+              : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+          }`}
+          onClick={() => setActiveTab("collection")}
+        >
+          Collection
+        </button>
+      </div>
+
       {report.isError ? (
         <div className="text-sm text-red-400">{String(report.error)}</div>
       ) : null}
 
+      {activeTab === "collection" ? (
+        collectionReport.isLoading ? (
+          <div className="space-y-3">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="h-32 animate-pulse rounded-lg bg-zinc-100 dark:bg-white/[0.04]" />
+            ))}
+          </div>
+        ) : collectionReport.isError ? (
+          <div className="text-sm text-red-400">{String(collectionReport.error)}</div>
+        ) : collectionReport.data ? (
+          <CollectionReportSections data={collectionReport.data} />
+        ) : null
+      ) : null}
+
+      {activeTab !== "activity" ? null : (
+      <>
       {/* ── Collection at a glance ── */}
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
@@ -442,6 +482,8 @@ export function ReportsPage() {
           </ul>
         )}
       </section>
+      </>
+      )}
     </div>
   );
 }
