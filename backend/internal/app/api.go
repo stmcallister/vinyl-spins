@@ -370,6 +370,11 @@ func (a *App) handlePickRecord() http.HandlerFunc {
 			argN++
 		}
 
+		havingSQL := ""
+		if r.URL.Query().Get("neglected") == "true" {
+			havingSQL = "having max(s.spun_at) < now() - interval '6 months'"
+		}
+
 		// Weighted random pick biased toward older last_spun_at:
 		// - compute age_days since last spun (or epoch if never spun)
 		// - weight grows with age, capped so never-spun doesn't dominate infinitely
@@ -391,6 +396,7 @@ with candidates as (
   left join spins s on s.album_id = a.id and s.user_id = a.user_id
   `+whereSQL+`
   group by a.id
+  `+havingSQL+`
 ),
 weighted as (
   select

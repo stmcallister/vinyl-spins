@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../utils/api";
 
 type CollectionReport = Awaited<ReturnType<typeof api.collectionReport>>;
@@ -264,6 +264,11 @@ export function ReportsPage() {
     queryFn: () => api.reports(period),
   });
 
+  const pickNeglected = useMutation({
+    mutationFn: () => api.pickRecord({ neglected: true }),
+    onSuccess: (a) => navigate(`/records/${a.id}`),
+  });
+
   const collectionReport = useQuery({
     queryKey: ["collection-report"],
     queryFn: () => api.collectionReport(),
@@ -445,6 +450,15 @@ export function ReportsPage() {
             Not played in 6+ months
             {data ? <span className="ml-1.5 text-xs font-normal">({data.neglected.length})</span> : null}
           </button>
+          {neglectedTab === "stale" && !!data?.neglected.length && (
+            <button
+              className="ml-auto text-xs font-medium px-2.5 py-1 rounded-md bg-red-500 text-white hover:bg-red-600 disabled:opacity-50 transition-colors"
+              onClick={() => pickNeglected.mutate()}
+              disabled={pickNeglected.isPending}
+            >
+              {pickNeglected.isPending ? "Picking…" : "Pick one"}
+            </button>
+          )}
         </div>
 
         {report.isLoading ? (

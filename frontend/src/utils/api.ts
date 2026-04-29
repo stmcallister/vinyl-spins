@@ -86,7 +86,7 @@ export const api = {
     );
   },
 
-  async pickRecord(input?: { q?: string; artist?: string; tag_ids?: string }): Promise<{
+  async pickRecord(input?: { q?: string; artist?: string; tag_ids?: string; neglected?: boolean }): Promise<{
     id: string;
     discogs_release_id: number;
     title: string;
@@ -102,6 +102,7 @@ export const api = {
         q: input?.q,
         artist: input?.artist,
         tag_ids: input?.tag_ids,
+        neglected: input?.neglected ? "true" : undefined,
       })}`,
     );
   },
