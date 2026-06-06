@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "../utils/api";
 
@@ -82,10 +82,24 @@ function RecordRow(props: {
   thumbUrl?: string;
   lastSpunAt?: string;
   spinCount?: number;
+  highlighted?: boolean;
 }) {
+  const rowRef = useRef<HTMLLIElement>(null);
+
+  useEffect(() => {
+    if (props.highlighted) {
+      rowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [props.highlighted]);
+
   return (
     <li
-      className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 hover:bg-zinc-100 dark:hover:bg-white/[0.04]"
+      ref={rowRef}
+      className={`flex cursor-pointer items-center gap-3 rounded-md px-2 py-2 transition-colors ${
+        props.highlighted
+          ? "bg-red-50 ring-1 ring-red-400/40 dark:bg-red-500/10"
+          : "hover:bg-zinc-100 dark:hover:bg-white/[0.04]"
+      }`}
       onClick={() => navigate(`/records/${props.id}`)}
     >
       {props.thumbUrl ? (
@@ -257,6 +271,7 @@ function CollectionReportSections(props: { data: CollectionReport }) {
 export function ReportsPage() {
   const [period, setPeriod] = useState<"week" | "month">("week");
   const [activeTab, setActiveTab] = useState<"activity" | "collection" | "neglected">("activity");
+  const [pickedId, setPickedId] = useState<string | null>(null);
 
   const report = useQuery({
     queryKey: ["reports", period],
@@ -265,7 +280,7 @@ export function ReportsPage() {
 
   const pickNeglected = useMutation({
     mutationFn: () => api.pickRecord({ neglected: true }),
-    onSuccess: (a) => navigate(`/records/${a.id}`),
+    onSuccess: (a) => setPickedId(a.id),
   });
 
   const collectionReport = useQuery({
@@ -366,6 +381,7 @@ export function ReportsPage() {
                   thumbUrl={r.thumb_url}
                   lastSpunAt={r.last_spun_at}
                   spinCount={r.spin_count}
+                  highlighted={r.id === pickedId}
                 />
               ))}
             </ul>
