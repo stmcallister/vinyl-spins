@@ -347,29 +347,268 @@ export function App() {
         {path === "/api-health" ? (
           <ApiHealthPage apiUrl={apiUrl} />
         ) : me.isSuccess ? (
-          <AppAuthed
-            path={path}
-            currentUserID={me.data.user_id}
-            isAdmin={me.data.is_admin}
-            tagOptions={tagOptions}
-            createTag={createTag}
-            updateTag={updateTag}
-            deleteTag={deleteTag}
-            addRecordTag={addRecordTag}
-            removeRecordTag={removeRecordTag}
-            createSpin={createSpin}
-            deleteSpin={deleteSpin}
-          />
+          <>
+            <AppAuthed
+              path={path}
+              currentUserID={me.data.user_id}
+              isAdmin={me.data.is_admin}
+              tagOptions={tagOptions}
+              createTag={createTag}
+              updateTag={updateTag}
+              deleteTag={deleteTag}
+              addRecordTag={addRecordTag}
+              removeRecordTag={removeRecordTag}
+              createSpin={createSpin}
+              deleteSpin={deleteSpin}
+            />
+            <DeleteAccountSection discogsUsername={me.data.discogs_username} />
+          </>
         ) : me.isError ? (
-          <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200">
-            Not connected. Click <span className="font-medium">Connect Discogs</span> above to authenticate.
-          </div>
+          <LandingPage discogsStartHref={discogsStartHref} />
         ) : (
           <div className="mt-6 rounded-lg border border-zinc-200 bg-white p-4 text-sm text-zinc-600 shadow-sm dark:border-white/10 dark:bg-white/[0.04] dark:text-zinc-200">
             Loading session…
           </div>
         )}
       </main>
+    </div>
+  );
+}
+
+const landingFeatures = [
+  {
+    title: "Log every spin",
+    body: "Record when you played an album, with an optional note about the pressing, the mood, or who you were listening with.",
+  },
+  {
+    title: "Find what to play next",
+    body: "A weighted random pick that leans toward records you haven't played in a while, so the whole shelf gets some love.",
+  },
+  {
+    title: "Rediscover neglected records",
+    body: "See the albums that have gone the longest without a spin, or that you've never played since adding them.",
+  },
+  {
+    title: "Reports and tags",
+    body: "Listening stats over time, plus your own tags for grouping records however you think about them.",
+  },
+];
+
+const landingWeDo = [
+  "Read your Discogs username so we know who you are and can sign you in.",
+  "Read the releases in your Discogs collection: title, artist, label, year, format, and cover art.",
+  "Keep a copy of that collection info so pages load quickly. It refreshes when you connect and whenever you click Sync records.",
+  "Store your Discogs access token encrypted (AES-GCM), so syncing works without asking you to approve access again.",
+  "Delete all of it, along with your spins and tags, whenever you choose Delete my account.",
+];
+
+const landingWeDont = [
+  "Change anything in your Discogs account. We never add or remove records, edit folders, ratings, or notes, or touch your wantlist.",
+  "See your Discogs password. You sign in on discogs.com and Discogs hands us a token.",
+  "Use your marketplace orders, messages, inventory, or payment details.",
+  "Sell, share, or advertise with your data.",
+];
+
+function LandingCheck(props: { ok: boolean }) {
+  return props.ok ? (
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ) : (
+    <svg className="mt-0.5 h-4 w-4 shrink-0 text-rose-600 dark:text-rose-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
+    </svg>
+  );
+}
+
+function LandingPage(props: { discogsStartHref: string }) {
+  const card = "rounded-lg border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]";
+  return (
+    <div className="space-y-10 pb-8">
+      <section className="pt-6 text-center sm:pt-10">
+        <VinylIcon className="mx-auto h-16 w-16" />
+        <h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl">Keep track of the records you actually play.</h1>
+        <p className="mx-auto mt-4 max-w-2xl text-base text-zinc-600 dark:text-zinc-300">
+          Vinyl Spins is a listening log for your record collection. Bring in your collection from Discogs, log each spin, and
+          rediscover the albums that have been sitting on the shelf too long.
+        </p>
+        <div className="mt-6 flex flex-col items-center gap-2">
+          <a
+            className="rounded-md bg-zinc-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+            href={props.discogsStartHref}
+          >
+            Connect with Discogs
+          </a>
+          <div className="text-xs text-zinc-500 dark:text-zinc-400">Read-only. We never change anything in your Discogs account.</div>
+        </div>
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2">
+        {landingFeatures.map((f) => (
+          <div key={f.title} className={card}>
+            <div className="font-medium">{f.title}</div>
+            <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-300">{f.body}</p>
+          </div>
+        ))}
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold">Why connect to Discogs?</h2>
+        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
+          Your Discogs collection already lists what's on your shelf. Instead of making you type it all in again, Vinyl Spins
+          reads it from Discogs, and the spins, notes, and tags you add are stored in Vinyl Spins. Here is exactly what that
+          connection is used for.
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          <div className={card}>
+            <div className="font-medium">What we do with your Discogs data</div>
+            <ul className="mt-3 space-y-2.5 text-sm text-zinc-700 dark:text-zinc-200">
+              {landingWeDo.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <LandingCheck ok />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div className={card}>
+            <div className="font-medium">What we don't do</div>
+            <ul className="mt-3 space-y-2.5 text-sm text-zinc-700 dark:text-zinc-200">
+              {landingWeDont.map((item) => (
+                <li key={item} className="flex gap-2">
+                  <LandingCheck ok={false} />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+          A heads-up about the Discogs approval screen: Discogs doesn't let apps request narrower permissions, so the screen
+          describes access to your account in general terms. Vinyl Spins only ever sends Discogs read requests for your
+          identity, your collection, and public release details. You can revoke access at any time from your Discogs account
+          settings.
+        </p>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold">How it works</h2>
+        <ol className="mt-4 grid gap-3 sm:grid-cols-3">
+          {[
+            ["Connect", "You'll be sent to discogs.com to sign in and approve Vinyl Spins."],
+            ["Sync", "We import your collection. Large collections can take a few minutes."],
+            ["Spin", "Drop the needle, log the spin, and watch your listening history grow."],
+          ].map(([title, body], i) => (
+            <li key={title} className={card}>
+              <div className="flex items-center gap-2">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-zinc-800 text-xs font-semibold text-white dark:bg-zinc-100 dark:text-zinc-900">
+                  {i + 1}
+                </span>
+                <span className="font-medium">{title}</span>
+              </div>
+              <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">{body}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="text-center">
+        <a
+          className="inline-block rounded-md bg-zinc-800 px-5 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white"
+          href={props.discogsStartHref}
+        >
+          Connect with Discogs
+        </a>
+        <p className="mt-6 text-xs text-zinc-500 dark:text-zinc-400">
+          Vinyl Spins uses the Discogs API but is not affiliated with, sponsored, or endorsed by Discogs. Discogs is a trademark
+          of Zink Media, LLC.
+        </p>
+      </section>
+    </div>
+  );
+}
+
+function DeleteAccountSection(props: { discogsUsername: string }) {
+  const qc = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+
+  const deleteMe = useMutation({
+    mutationFn: api.deleteMe,
+    onSuccess: async () => {
+      qc.removeQueries({ predicate: (q) => q.queryKey[0] !== "me" });
+      navigate("/");
+      await qc.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+
+  if (!open) {
+    return (
+      <div className="mt-10 border-t border-zinc-200 pt-4 text-right dark:border-white/10">
+        <button
+          type="button"
+          className="text-xs text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-rose-600 dark:text-zinc-400 dark:decoration-zinc-600 dark:hover:text-rose-400"
+          onClick={() => setOpen(true)}
+        >
+          Delete my account
+        </button>
+      </div>
+    );
+  }
+
+  const confirmed = confirmText.trim() === props.discogsUsername;
+
+  return (
+    <div className="mt-10 rounded-lg border border-rose-300 bg-rose-50 p-4 shadow-sm dark:border-rose-500/30 dark:bg-rose-500/5">
+      <div className="font-medium text-rose-800 dark:text-rose-200">Delete your Vinyl Spins account</div>
+      <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+        This permanently deletes your Vinyl Spins account, including every spin, note, and tag, your synced collection
+        data, and your stored Discogs access token. It can't be undone. Nothing in your Discogs account is changed.
+      </p>
+      <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
+        To also revoke Vinyl Spins' access on the Discogs side, remove it from your Discogs account settings.
+      </p>
+      <form
+        className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (confirmed) deleteMe.mutate();
+        }}
+      >
+        <label className="text-sm text-zinc-700 dark:text-zinc-300" htmlFor="delete-confirm">
+          Type <span className="font-mono font-medium">{props.discogsUsername}</span> to confirm:
+        </label>
+        <input
+          id="delete-confirm"
+          className="rounded-md border border-zinc-300 bg-white px-2 py-1.5 text-sm dark:border-white/15 dark:bg-black/20"
+          value={confirmText}
+          onChange={(e) => setConfirmText(e.target.value)}
+          autoComplete="off"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-700 disabled:opacity-50"
+            disabled={!confirmed || deleteMe.isPending}
+          >
+            {deleteMe.isPending ? "Deleting…" : "Delete account"}
+          </button>
+          <button
+            type="button"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-100 dark:border-white/15 dark:text-zinc-200 dark:hover:bg-white/[0.06]"
+            onClick={() => {
+              setOpen(false);
+              setConfirmText("");
+            }}
+            disabled={deleteMe.isPending}
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+      {deleteMe.isError ? <div className="mt-2 text-sm text-rose-700 dark:text-rose-300">{String(deleteMe.error)}</div> : null}
     </div>
   );
 }
