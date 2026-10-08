@@ -25,12 +25,13 @@ function useDarkMode(): [boolean, () => void] {
 function VinylIcon(props: { className?: string }) {
   return (
     <svg className={props.className} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="11" fill="#18181b" />
-      <circle cx="12" cy="12" r="10" fill="none" stroke="#27272a" strokeWidth="0.6" />
-      <circle cx="12" cy="12" r="8.5" fill="none" stroke="#27272a" strokeWidth="0.6" />
-      <circle cx="12" cy="12" r="7" fill="none" stroke="#27272a" strokeWidth="0.6" />
+      {/* Dark mode flips the record to a light silver so it stands out against the dark background. */}
+      <circle cx="12" cy="12" r="11" className="fill-zinc-900 dark:fill-zinc-300" />
+      <circle cx="12" cy="12" r="10" fill="none" className="stroke-zinc-800 dark:stroke-zinc-400" strokeWidth="0.6" />
+      <circle cx="12" cy="12" r="8.5" fill="none" className="stroke-zinc-800 dark:stroke-zinc-400" strokeWidth="0.6" />
+      <circle cx="12" cy="12" r="7" fill="none" className="stroke-zinc-800 dark:stroke-zinc-400" strokeWidth="0.6" />
       <circle cx="12" cy="12" r="5.5" fill="#e63946" />
-      <circle cx="12" cy="12" r="1.5" fill="#18181b" />
+      <circle cx="12" cy="12" r="1.5" className="fill-zinc-900 dark:fill-zinc-950" />
     </svg>
   );
 }
