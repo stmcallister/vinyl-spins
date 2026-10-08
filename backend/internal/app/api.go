@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -1495,6 +1496,13 @@ func (a *App) handleDeleteMe() http.HandlerFunc {
 		if _, err := a.db.Exec(r.Context(), `delete from users where id = $1`, userID); err != nil {
 			writeJSONError(w, http.StatusInternalServerError, err)
 			return
+		}
+		// Scrub the user's rows from on-disk backups too. The account is already
+		// gone, so a failure here is logged rather than returned to the client.
+		if a.backupDir != "" {
+			if err := PurgeUserFromBackups(a.backupDir, userID); err != nil {
+				log.Printf("delete me: %v", err)
+			}
 		}
 		// Clear the session cookie.
 		setCookie(w, &http.Cookie{

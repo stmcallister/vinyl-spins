@@ -9,10 +9,15 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+// backupMu serializes writing, pruning, and purging backup files so a purge
+// can't miss a file that an export is in the middle of writing.
+var backupMu sync.Mutex
 
 // StartDailyExport launches a background goroutine that writes a CSV backup of
 // all spins once per day. It runs immediately on startup (so missed days are
@@ -52,6 +57,9 @@ func nextMidnightUTC() time.Time {
 
 // exportSpins writes a dated CSV to dir and prunes files older than 30 days.
 func exportSpins(ctx context.Context, db *pgxpool.Pool, dir string) error {
+	backupMu.Lock()
+	defer backupMu.Unlock()
+
 	date := time.Now().UTC().Format("2006-01-02")
 	filename := filepath.Join(dir, fmt.Sprintf("spins-%s.csv", date))
 
@@ -154,4 +162,91 @@ func pruneOldBackups(dir string, keep int) {
 			log.Printf("export: pruned %s", old)
 		}
 	}
+}
+
+// PurgeUserFromBackups rewrites every spins-*.csv backup in dir without the
+// rows belonging to userID. Called when a user deletes their account so their
+// data doesn't linger in backups. Each file is rewritten via a temp file and
+// rename so a crash never leaves a truncated backup.
+func PurgeUserFromBackups(dir, userID string) error {
+	backupMu.Lock()
+	defer backupMu.Unlock()
+
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("readdir %s: %w", dir, err)
+	}
+
+	var errs []string
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasPrefix(e.Name(), "spins-") || !strings.HasSuffix(e.Name(), ".csv") {
+			continue
+		}
+		if err := purgeUserFromFile(filepath.Join(dir, e.Name()), userID); err != nil {
+			errs = append(errs, err.Error())
+		}
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("purge backups: %s", strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+func purgeUserFromFile(path, userID string) error {
+	in, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", path, err)
+	}
+	records, err := csv.NewReader(in).ReadAll()
+	in.Close()
+	if err != nil {
+		return fmt.Errorf("read %s: %w", path, err)
+	}
+	if len(records) == 0 {
+		return nil
+	}
+
+	userCol := -1
+	for i, h := range records[0] {
+		if h == "user_id" {
+			userCol = i
+			break
+		}
+	}
+	if userCol < 0 {
+		return fmt.Errorf("%s: no user_id column", path)
+	}
+
+	kept := records[:1]
+	for _, rec := range records[1:] {
+		if userCol < len(rec) && rec[userCol] == userID {
+			continue
+		}
+		kept = append(kept, rec)
+	}
+	if len(kept) == len(records) {
+		return nil
+	}
+
+	tmp, err := os.CreateTemp(filepath.Dir(path), ".purge-*.csv")
+	if err != nil {
+		return fmt.Errorf("create temp for %s: %w", path, err)
+	}
+	defer os.Remove(tmp.Name()) // no-op after a successful rename
+	w := csv.NewWriter(tmp)
+	if err := w.WriteAll(kept); err != nil {
+		tmp.Close()
+		return fmt.Errorf("write %s: %w", path, err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp for %s: %w", path, err)
+	}
+	if err := os.Rename(tmp.Name(), path); err != nil {
+		return fmt.Errorf("replace %s: %w", path, err)
+	}
+	log.Printf("export: purged %d rows for deleted user from %s", len(records)-len(kept), path)
+	return nil
 }

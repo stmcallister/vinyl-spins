@@ -564,7 +564,8 @@ function DeleteAccountSection(props: { discogsUsername: string }) {
       <div className="font-medium text-rose-800 dark:text-rose-200">Delete your Vinyl Spins account</div>
       <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
         This permanently deletes your Vinyl Spins account, including every spin, note, and tag, your synced collection
-        data, and your stored Discogs access token. It can't be undone. Nothing in your Discogs account is changed.
+        data, and your stored Discogs access token. Your spins are also removed from our backups. It can't be
+        undone. Nothing in your Discogs account is changed.
       </p>
       <p className="mt-2 text-sm text-zinc-700 dark:text-zinc-300">
         To also revoke Vinyl Spins' access on the Discogs side, remove it from your Discogs account settings.

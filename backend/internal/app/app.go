@@ -16,9 +16,10 @@ import (
 )
 
 type App struct {
-	addr string
-	db   *pgxpool.Pool
-	mux  http.Handler
+	addr      string
+	db        *pgxpool.Pool
+	mux       http.Handler
+	backupDir string
 }
 
 func New(ctx context.Context) (*App, error) {
@@ -48,6 +49,7 @@ func New(ctx context.Context) (*App, error) {
 
 	// Start daily spins backup if BACKUP_DIR is configured.
 	if backupDir := os.Getenv("BACKUP_DIR"); backupDir != "" && db != nil {
+		a.backupDir = backupDir
 		StartDailyExport(ctx, db, backupDir)
 	}
 
